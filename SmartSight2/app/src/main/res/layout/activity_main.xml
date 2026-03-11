@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp">
+
+    <!-- Greeting -->
+    <TextView
+        android:id="@+id/tvGreeting"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Welcome back"
+        android:textColor="#FFFFFF"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="60dp"/>
+
+    <!-- SMART SCAN -->
+    <Button
+        android:id="@+id/btnSmartScan"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:text="SMART SCAN"
+        android:textSize="22sp"
+        android:textColor="#000000"
+        android:backgroundTint="#00FFCC"
+        android:layout_marginBottom="36dp"/>
+
+    <!-- MY SAVED ITEMS -->
+    <Button
+        android:id="@+id/btnSavedItems"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:text="MY SAVED ITEMS"
+        android:textSize="22sp"
+        android:textColor="#000000"
+        android:backgroundTint="#00FFCC"
+        android:layout_marginBottom="36dp"/>
+
+    <!-- SETTINGS -->
+    <Button
+        android:id="@+id/btnSettings"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:text="SETTINGS"
+        android:textSize="22sp"
+        android:textColor="#000000"
+        android:backgroundTint="#00FFCC"/>
+
+</LinearLayout>
