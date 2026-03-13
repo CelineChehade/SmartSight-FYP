@@ -1,160 +1,226 @@
 package com.smartsight.smartsight;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.lifecycle.ViewModelProvider;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.Settings;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
+import android.text.TextUtils;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
+
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
 
-    private static final int SPEECH_REQUEST_CODE = 100;
-    private static final int CONFIRM_REQUEST_CODE = 200;
-
+    // ---------------------------------------------------
+    // FIELDS
+    // ---------------------------------------------------
     private TextToSpeech textToSpeech;
     private UserViewModel userViewModel;
-
     private TextView tvGreeting;
-    private String pendingName;
 
+    private String pendingName;              // temporarily holds spoken name
+
+    // New Activity-results API launchers
+    private ActivityResultLauncher<Intent> nameLauncher;
+    private ActivityResultLauncher<Intent> confirmLauncher;
+
+    // ---------------------------------------------------
+    // LIFECYCLE
+    // ---------------------------------------------------
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        tvGreeting = findViewById(R.id.tvGreeting);
+        tvGreeting    = findViewById(R.id.tvGreeting);
+        userViewModel = new ViewModelProvider(this).get(UserViewModel.class);
+        textToSpeech  = new TextToSpeech(this, this);
 
-        userViewModel = new ViewModelProvider(this)
-                .get(UserViewModel.class);
+        // ---------- Register launchers ----------
+        nameLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                    ArrayList<String> list = result.getData()
+                            .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    if (list != null && !list.isEmpty()) handleNameResult(list);
+                });
 
-        // Initialize TTS and wait for onInit()
-        textToSpeech = new TextToSpeech(this, this);
+        confirmLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                    ArrayList<String> list = result.getData()
+                            .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    if (list != null && !list.isEmpty()) handleConfirmResult(list);
+                });
     }
 
+    // ---------------------------------------------------
+    // TTS READY
+    // ---------------------------------------------------
     @Override
     public void onInit(int status) {
-
         if (status != TextToSpeech.SUCCESS) return;
 
         textToSpeech.setLanguage(Locale.ENGLISH);
 
+        // One-shot observe the user profile
         userViewModel.getUser().observe(this, user -> {
-
             if (user == null) {
                 askForUserName();
             } else {
                 greetUser(user.fullName);
             }
-
             userViewModel.getUser().removeObservers(this);
         });
     }
 
+    // ---------------------------------------------------
+    // GREETING
+    // ---------------------------------------------------
     private void greetUser(String name) {
         tvGreeting.setText("Welcome, " + name);
 
-        textToSpeech.speak(
-                "Welcome, " + name,
-                TextToSpeech.QUEUE_FLUSH,
-                null,
-                null
-        );
+        textToSpeech.speak("Welcome, " + name,
+                TextToSpeech.QUEUE_FLUSH, null, null);
+
+        new Handler().postDelayed(this::checkTalkBackAndGuide, 1500);
     }
 
+    // ---------------------------------------------------
+    // NAME CAPTURE
+    // ---------------------------------------------------
     private void askForUserName() {
+        textToSpeech.speak("Please say your full name",
+                TextToSpeech.QUEUE_FLUSH, null, null);
 
-        textToSpeech.speak(
-                "Please say your full name",
-                TextToSpeech.QUEUE_FLUSH,
-                null,
-                null
-        );
-
-        new Handler().postDelayed(() -> {
-
-            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            intent.putExtra(RecognizerIntent.EXTRA_PROMPT,
-                    "Say your full name");
-
-            startActivityForResult(intent, SPEECH_REQUEST_CODE);
-
-        }, 2000);
+        new Handler().postDelayed(this::launchNameRecognition, 2000);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+    private void launchNameRecognition() {
+        Intent i = buildSpeechIntent("Say your full name");
+        nameLauncher.launch(i);
+    }
 
-        if (resultCode != RESULT_OK || data == null) return;
+    private void launchConfirmRecognition() {
+        Intent i = buildSpeechIntent("Say yes or no");
+        confirmLauncher.launch(i);
+    }
 
-        ArrayList<String> results =
-                data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+    private Intent buildSpeechIntent(String prompt) {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, prompt);
 
-        if (results == null || results.isEmpty()) return;
+        // Helpful extras
+        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+        intent.putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1000);
+        intent.putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1000);
 
-        if (requestCode == SPEECH_REQUEST_CODE) {
+        return intent;
+    }
 
-            pendingName = results.get(0);
+    // ---------------------------------------------------
+    // RESULT HANDLERS
+    // ---------------------------------------------------
+    private void handleNameResult(List<String> results) {
+        pendingName = results.get(0);
 
-            textToSpeech.speak(
-                    "I heard " + pendingName +
-                            ". Is this correct? Say yes or no.",
-                    TextToSpeech.QUEUE_FLUSH,
-                    null,
-                    null
-            );
+        textToSpeech.speak("I heard " + pendingName +
+                        ". Is this correct? Say yes or no.",
+                TextToSpeech.QUEUE_FLUSH, null, null);
 
-            new Handler().postDelayed(() -> {
+        new Handler().postDelayed(this::launchConfirmRecognition, 2500);
+    }
 
-                Intent confirmIntent =
-                        new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+    private void handleConfirmResult(List<String> results) {
+        boolean positive = isPositive(results);
+        boolean negative = isNegative(results);
 
-                confirmIntent.putExtra(
-                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        if (positive && !negative) {          // YES
+            UserProfile user = new UserProfile();
+            user.id       = 1;
+            user.fullName = pendingName;
+            user.language = "en";
+            userViewModel.insertUser(user);
+            greetUser(pendingName);
 
-                startActivityForResult(confirmIntent, CONFIRM_REQUEST_CODE);
+        } else if (negative && !positive) {   // NO
+            textToSpeech.speak("Okay, let's try again. Please say your full name.",
+                    TextToSpeech.QUEUE_FLUSH, null, null);
+            new Handler().postDelayed(this::askForUserName, 2000);
 
-            }, 2500);
-
-        } else if (requestCode == CONFIRM_REQUEST_CODE) {
-
-            String answer = results.get(0).toLowerCase();
-
-            if (answer.contains("yes")) {
-
-                UserProfile user = new UserProfile();
-                user.id = 1;
-                user.fullName = pendingName;
-                user.language = "en";
-
-                userViewModel.insertUser(user);
-
-                greetUser(pendingName);
-
-            } else if(answer.contains("no")) {
-
-                textToSpeech.speak(
-                        "Okay, let's try again. Please say your full name.",
-                        TextToSpeech.QUEUE_FLUSH,
-                        null,
-                        null
-                );
-
-                new Handler().postDelayed(this::askForUserName, 2000);
-            }
+        } else {                              // ambiguous
+            textToSpeech.speak("I didn't catch that clearly. Please say yes or no.",
+                    TextToSpeech.QUEUE_FLUSH, null, null);
+            new Handler().postDelayed(this::launchConfirmRecognition, 2000);
         }
     }
 
+    // ---------------------------------------------------
+    // YES / NO DETECTION
+    // ---------------------------------------------------
+    private boolean isPositive(List<String> results) {
+        for (String hyp : results) {
+            String lower = hyp.trim().toLowerCase(Locale.US);
+            if (lower.matches("^(y(es)?|yeah|yup|yep|sure|correct|right|affirmative)\\b.*"))
+                return true;
+        }
+        return false;
+    }
+
+    private boolean isNegative(List<String> results) {
+        for (String hyp : results) {
+            String lower = hyp.trim().toLowerCase(Locale.US);
+            if (lower.matches("^(n(o|ope|ah)?|now|know|negative|incorrect|wrong)\\b.*"))
+                return true;
+        }
+        return false;
+    }
+
+    // ---------------------------------------------------
+    // TALKBACK CHECK
+    // ---------------------------------------------------
+    private boolean isTalkBackEnabled() {
+        String enabled = Settings.Secure.getString(
+                getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return !TextUtils.isEmpty(enabled) &&
+                enabled.toLowerCase().contains("talkback");
+    }
+
+    private void checkTalkBackAndGuide() {
+        if (isTalkBackEnabled()) return;
+
+        textToSpeech.speak(
+                "Accessibility services appear to be disabled. Please enable TalkBack for full voice navigation.",
+                TextToSpeech.QUEUE_FLUSH, null, null);
+
+        new Handler().postDelayed(() -> {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            startActivity(intent);
+        }, 2500);
+    }
+
+    // ---------------------------------------------------
+    // CLEAN-UP
+    // ---------------------------------------------------
     @Override
     protected void onDestroy() {
         if (textToSpeech != null) {
