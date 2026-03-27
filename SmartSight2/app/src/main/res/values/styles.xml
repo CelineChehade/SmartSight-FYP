@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="LargeMenuButton" parent="Widget.MaterialComponents.Button">
+        <!-- Size -->
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">72dp</item>
+        <item name="android:padding">20dp</item>
+
+        <!-- Text -->
+        <item name="android:textSize">20sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/buttonTextColor</item>
+
+        <!-- Background -->
+        <item name="android:backgroundTint">@color/primaryButtonColor</item>
+
+        <!-- Shape & Elevation for modern look -->
+        <item name="cornerRadius">16dp</item>
+        <item name="android:elevation">6dp</item>
+    </style>
+
+</resources>
