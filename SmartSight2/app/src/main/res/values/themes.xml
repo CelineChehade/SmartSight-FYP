@@ -1,9 +1,25 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.SmartSight" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+    <!-- Base application theme -->
+    <style name="Theme.SmartSight" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/primaryButtonColor</item>
+        <item name="colorPrimaryVariant">@color/secondaryButtonColor</item>
+        <item name="colorOnPrimary">@color/buttonTextColor</item>
+
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/tertiaryButtonColor</item>
+        <item name="colorSecondaryVariant">@color/secondaryButtonColor</item>
+        <item name="colorOnSecondary">@color/buttonTextColor</item>
+
+        <!-- Backgrounds -->
+        <item name="android:colorBackground">@color/backgroundColor</item>
+        <item name="colorSurface">@color/cardColor</item>
+        <item name="colorOnSurface">@color/primaryTextColor</item>
+
+        <!-- Status bar / navigation bar -->
+        <item name="android:statusBarColor">@color/backgroundColor</item>
+        <item name="android:navigationBarColor">@color/backgroundColor</item>
     </style>
 
-    <style name="Theme.SmartSight" parent="Base.Theme.SmartSight" />
 </resources>
