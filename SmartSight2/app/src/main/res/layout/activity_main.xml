@@ -1,55 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mainRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="32dp">
+    android:background="@color/backgroundColor"
+    android:padding="24dp">
 
     <!-- Greeting -->
     <TextView
         android:id="@+id/tvGreeting"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Welcome back"
-        android:textColor="#FFFFFF"
-        android:textSize="26sp"
+        android:textAppearance="?attr/textAppearanceHeadline4"
         android:textStyle="bold"
+        android:textColor="@color/primaryTextColor"
         android:gravity="center"
-        android:layout_marginBottom="60dp"/>
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- SMART SCAN -->
-    <Button
-        android:id="@+id/btnSmartScan"
-        android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:text="SMART SCAN"
-        android:textSize="22sp"
-        android:textColor="#000000"
-        android:backgroundTint="#00FFCC"
-        android:layout_marginBottom="36dp"/>
+    <!-- Button Group -->
+    <LinearLayout
+        android:id="@+id/buttonGroup"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@id/tvGreeting"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="60dp">
 
-    <!-- MY SAVED ITEMS -->
-    <Button
-        android:id="@+id/btnSavedItems"
-        android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:text="MY SAVED ITEMS"
-        android:textSize="22sp"
-        android:textColor="#000000"
-        android:backgroundTint="#00FFCC"
-        android:layout_marginBottom="36dp"/>
+        <Button
+            android:id="@+id/btnSmartScan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/smart_scan_button"
+            android:textSize="24sp"
+            android:padding="24dp"
+            android:backgroundTint="@color/primaryButtonColor"
+            android:textColor="@color/buttonTextColor"
+            android:visibility="gone"
+            android:layout_marginBottom="32dp"/>
 
-    <!-- SETTINGS -->
-    <Button
-        android:id="@+id/btnSettings"
-        android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:text="SETTINGS"
-        android:textSize="22sp"
-        android:textColor="#000000"
-        android:backgroundTint="#00FFCC"/>
+        <Button
+            android:id="@+id/btnSavedItems"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/saved_items_button"
+            android:textSize="24sp"
+            android:padding="24dp"
+            android:backgroundTint="@color/secondaryButtonColor"
+            android:textColor="@color/buttonTextColor"
+            android:visibility="gone"
+            android:layout_marginBottom="32dp"/>
 
-</LinearLayout>
+        <Button
+            android:id="@+id/btnSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_button"
+            android:textSize="24sp"
+            android:padding="24dp"
+            android:backgroundTint="@color/tertiaryButtonColor"
+            android:textColor="@color/buttonTextColor"
+            android:visibility="gone"/>
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
