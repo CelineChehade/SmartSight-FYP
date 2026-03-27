@@ -1,227 +1,255 @@
-package com.smartsight.smartsight;
+package com.example.smartsight;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
 import android.provider.Settings;
+import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.text.TextUtils;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
-import androidx.annotation.Nullable;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
 
-    // ---------- Request codes ----------
-    private static final int SPEECH_REQUEST_CODE  = 100;
-    private static final int CONFIRM_REQUEST_CODE = 200;
-
-
     private TextToSpeech textToSpeech;
-
-
     private UserViewModel userViewModel;
-
+    private String pendingName;
+    private SpeechRecognizer speechRecognizer;
+    private Intent recognizerIntent;
+    private boolean expectingName = false;
+    private boolean expectingYesNo = false;
 
     private TextView tvGreeting;
+    private Button btnScan, btnSaved, btnSettings;
+    private boolean talkBackPromptShown = false;
 
-
-    private String pendingName;
+    private static final int REQ_AUDIO_PERM = 200;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        tvGreeting = findViewById(R.id.tvGreeting);
-        userViewModel = new ViewModelProvider(this).get(UserViewModel.class);
+        tvGreeting  = findViewById(R.id.tvGreeting);
+        btnScan     = findViewById(R.id.btnSmartScan);
+        btnSaved    = findViewById(R.id.btnSavedItems);
+        btnSettings = findViewById(R.id.btnSettings);
+        setButtonsVisible(false);
 
         textToSpeech = new TextToSpeech(this, this);
+        userViewModel = new ViewModelProvider(this).get(UserViewModel.class);
     }
-
 
     @Override
     public void onInit(int status) {
-        if (status != TextToSpeech.SUCCESS) return;
+        if (status == TextToSpeech.SUCCESS) {
+            textToSpeech.setLanguage(Locale.getDefault());
+            requestMicPermission();
+        }
+    }
 
-        textToSpeech.setLanguage(Locale.ENGLISH);
+    private void requestMicPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
+            initSpeechRecognizer();
+            askForUserName();
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO_PERM);
+        }
+    }
 
-        userViewModel.getUser().observe(this, user -> {
-            if (user == null) {
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_AUDIO_PERM) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                initSpeechRecognizer();
                 askForUserName();
             } else {
-                greetUser(user.fullName);
+                speak("Microphone permission is required.");
             }
-            userViewModel.getUser().removeObservers(this);
+        }
+    }
+
+    private void initSpeechRecognizer() {
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US"); // Force English US
+
+        speechRecognizer.setRecognitionListener(new RecognitionListener() {
+            @Override public void onReadyForSpeech(Bundle params) {}
+            @Override public void onResults(Bundle results) {
+                ArrayList<String> matches =
+                        results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (matches != null && !matches.isEmpty()) {
+                    handleSpeechResult(matches.get(0));
+                } else {
+                    speakAndThen("I didn’t catch that. Please try again.", MainActivity.this::startListening);
+                }
+            }
+            @Override public void onError(int error) {
+                speakAndThen("I didn’t catch that. Please try again.", MainActivity.this::startListening);
+            }
+            @Override public void onBeginningOfSpeech() {}
+            @Override public void onBufferReceived(byte[] buffer) {}
+            @Override public void onEndOfSpeech() {}
+            @Override public void onEvent(int eventType, Bundle params) {}
+            @Override public void onPartialResults(Bundle partialResults) {}
+            @Override public void onRmsChanged(float rmsdB) {}
         });
     }
 
-    // =====================================================
-    //  Greeting
-    // =====================================================
-
-    private void greetUser(String name) {
-        tvGreeting.setText("Welcome, " + name);
-
-        textToSpeech.speak("Welcome, " + name,
-                TextToSpeech.QUEUE_FLUSH, null, null);
-
-        new Handler().postDelayed(this::checkTalkBackAndGuide, 1500);
-    }
-
-    // =====================================================
-    //  First-time name capture
-    // =====================================================
-
     private void askForUserName() {
-        textToSpeech.speak("Please say your full name",
-                TextToSpeech.QUEUE_FLUSH, null, null);
-
-        new Handler().postDelayed(() -> {
-            Intent intent = buildSpeechIntent("Say your full name");
-            startActivityForResult(intent, SPEECH_REQUEST_CODE);
-        }, 2000);
+        expectingName = true;
+        expectingYesNo = false;
+        speakAndThen("Please say your full name.", this::startListening);
     }
 
-    private Intent buildSpeechIntent(String prompt) {
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, prompt);
-
-        // Optional tweaks
-        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
-        intent.putExtra(
-                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1000);
-        intent.putExtra(
-                RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1000);
-
-        return intent;
+    private void startListening() {
+        if (speechRecognizer != null) {
+            speechRecognizer.startListening(recognizerIntent);
+        }
     }
 
-    // =====================================================
-    //  onActivityResult
-    // =====================================================
+    private void handleSpeechResult(String spokenText) {
+        if (expectingName) {
+            pendingName = normalizeName(spokenText);
+            expectingName = false;
+            expectingYesNo = true;
+            speakAndThen("You said " + pendingName + ". Is that correct?", this::startListening);
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null) return;
-
-        ArrayList<String> results =
-                data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-        if (results == null || results.isEmpty()) return;
-
-        if (requestCode == SPEECH_REQUEST_CODE) {
-
-            pendingName = results.get(0);
-
-            textToSpeech.speak(
-                    "I heard " + pendingName + ". Is this correct? Say yes or no.",
-                    TextToSpeech.QUEUE_FLUSH, null, null);
-
-            new Handler().postDelayed(() -> {
-                Intent confirmIntent = buildSpeechIntent("Say yes or no");
-                startActivityForResult(confirmIntent, CONFIRM_REQUEST_CODE);
-            }, 2500);
-
-        } else if (requestCode == CONFIRM_REQUEST_CODE) {
-
-            boolean positive = isPositive(results);
-            boolean negative = isNegative(results);
-
-            if (positive && !negative) {          // clear YES
-                UserProfile user = new UserProfile();
-                user.id       = 1;
-                user.fullName = pendingName;
-                user.language = "en";
-                userViewModel.insertUser(user);
-
+        } else if (expectingYesNo) {
+            if (isYes(spokenText)) {
+                UserProfile u = new UserProfile();
+                u.id = 1;
+                u.fullName = pendingName;
+                u.language = Locale.getDefault().toString();
+                userViewModel.insertUser(u);
                 greetUser(pendingName);
-
-            } else if (negative && !positive) {   // clear NO
-                textToSpeech.speak(
-                        "Okay, let's try again. Please say your full name.",
-                        TextToSpeech.QUEUE_FLUSH, null, null);
-
-                new Handler().postDelayed(this::askForUserName, 2000);
-
-            } else {                              // ambiguous
-                textToSpeech.speak(
-                        "I didn't catch that clearly. Please say yes or no.",
-                        TextToSpeech.QUEUE_FLUSH, null, null);
-
-                new Handler().postDelayed(() -> {
-                    Intent retry = buildSpeechIntent("Say yes or no");
-                    startActivityForResult(retry, CONFIRM_REQUEST_CODE);
-                }, 2000);
+            } else if (isNo(spokenText)) {
+                speakAndThen("Let’s try again. Please say your name.", this::askForUserName);
+            } else {
+                speakAndThen("Please answer yes or no.", this::startListening);
             }
         }
     }
 
-    // =====================================================
-    //  Helpers for yes / no detection
-    // =====================================================
-
-    private boolean isPositive(List<String> results) {
-        for (String hyp : results) {
-            String lower = hyp.trim().toLowerCase(Locale.US);
-            if (lower.matches("^(y(es)?|yeah|yup|yep|sure|correct|right|affirmative)\\b.*"))
-                return true;
-        }
-        return false;
+    // ✅ Loosened regex
+    private boolean isYes(String s) {
+        return s.toLowerCase().matches(".*\\b(yes|yeah|yup|yep|sure|correct|right|affirmative|oui|ouais)\\b.*");
+    }
+    private boolean isNo(String s) {
+        return s.toLowerCase().matches(".*\\b(no|nope|nah|non|negative|incorrect|wrong|not)\\b.*");
     }
 
-    private boolean isNegative(List<String> results) {
-        for (String hyp : results) {
-            String lower = hyp.trim().toLowerCase(Locale.US);
-            if (lower.matches("^(n(o|ope|ah)?|now|know|negative|incorrect|wrong)\\b.*"))
-                return true;
+    // ✅ Normalize name
+    private String normalizeName(String spokenText) {
+        String lower = spokenText.toLowerCase();
+        if (lower.contains("wissam") || lower.contains("wisam") ||
+                lower.contains("with some") || lower.contains("wisdom")) {
+            return "Wissam";
         }
-        return false;
+        return spokenText;
     }
 
-    // =====================================================
-    //  TalkBack utilities
-    // =====================================================
+    private void speak(String msg) {
+        if (textToSpeech != null) {
+            textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, null);
+        }
+    }
+
+    private void speakAndThen(String msg, Runnable action) {
+        String utterId = "utt_" + System.currentTimeMillis();
+        textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            @Override public void onStart(String utteranceId) {}
+            @Override public void onDone(String utteranceId) {
+                if (utterId.equals(utteranceId)) {
+                    runOnUiThread(action);
+                }
+            }
+            @Override public void onError(String utteranceId) {}
+        });
+        textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
+    }
+
+    private void greetUser(String name) {
+        String msg = "Welcome " + name;
+        tvGreeting.setText(msg);
+
+        String utterId = "greet_" + System.currentTimeMillis();
+        textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            @Override public void onStart(String id) {}
+            @Override public void onDone(String id) {
+                if (utterId.equals(id)) {
+                    runOnUiThread(() -> {
+                        setButtonsVisible(true);
+                        attachButtonLogic();
+
+                        if (!isTalkBackEnabled() && !talkBackPromptShown) {
+                            talkBackPromptShown = true;
+                            speakAndThen("TalkBack is not enabled. Opening accessibility settings now.", () -> {
+                                Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                                startActivity(intent);
+
+                                // ✅ Spoken feedback instead of Snackbar
+                                speak("Accessibility settings opened. Please enable TalkBack if needed.");
+                            });
+                        } else if (!isTalkBackEnabled()) {
+                            speak("Main menu ready.");
+                        }
+                    });
+                }
+            }
+            @Override public void onError(String id) {}
+        });
+        textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
+    }
+
+    private void setButtonsVisible(boolean visible) {
+        int v = visible ? View.VISIBLE : View.GONE;
+        btnScan.setVisibility(v);
+        btnSaved.setVisibility(v);
+        btnSettings.setVisibility(v);
+    }
+
+    private void attachButtonLogic() {
+        View.OnClickListener todo = v -> speak("Feature not implemented yet.");
+        btnScan.setOnClickListener(todo);
+        btnSaved.setOnClickListener(todo);
+        btnSettings.setOnClickListener(todo);
+    }
 
     private boolean isTalkBackEnabled() {
-        String enabledServices = Settings.Secure.getString(
+        String enabled = Settings.Secure.getString(
                 getContentResolver(),
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        return !TextUtils.isEmpty(enabledServices) &&
-                enabledServices.toLowerCase().contains("talkback");
+        return !TextUtils.isEmpty(enabled) && enabled.toLowerCase().contains("talkback");
     }
-
-    private void checkTalkBackAndGuide() {
-        if (isTalkBackEnabled()) return;
-
-        textToSpeech.speak(
-                "Accessibility services appear to be disabled. " +
-                        "Please enable TalkBack for full voice navigation.",
-                TextToSpeech.QUEUE_FLUSH, null, null);
-
-        new Handler().postDelayed(() -> {
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            startActivity(intent);
-        }, 2500);
-    }
-
-    // =====================================================
-    //  Cleanup
-    // =====================================================
 
     @Override
     protected void onDestroy() {
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+        }
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();
