@@ -132,7 +132,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     private void handleSpeechResult(String spokenText) {
         if (expectingName) {
-            pendingName = normalizeName(spokenText);
+            pendingName = spokenText; // ✅ no normalization
             expectingName = false;
             expectingYesNo = true;
             speakAndThen("You said " + pendingName + ". Is that correct?", this::startListening);
@@ -146,29 +146,18 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 userViewModel.insertUser(u);
                 greetUser(pendingName);
             } else if (isNo(spokenText)) {
-                speakAndThen("Let’s try again. Please say your name.", this::askForUserName);
+                speakAndThen("Let’s try again.", this::askForUserName);
             } else {
                 speakAndThen("Please answer yes or no.", this::startListening);
             }
         }
     }
 
-    // ✅ Loosened regex
     private boolean isYes(String s) {
         return s.toLowerCase().matches(".*\\b(yes|yeah|yup|yep|sure|correct|right|affirmative|oui|ouais)\\b.*");
     }
     private boolean isNo(String s) {
-        return s.toLowerCase().matches(".*\\b(no|nope|nah|non|negative|incorrect|wrong|not)\\b.*");
-    }
-
-    // ✅ Normalize name
-    private String normalizeName(String spokenText) {
-        String lower = spokenText.toLowerCase();
-        if (lower.contains("wissam") || lower.contains("wisam") ||
-                lower.contains("with some") || lower.contains("wisdom")) {
-            return "Wissam";
-        }
-        return spokenText;
+        return s.toLowerCase().matches(".*\\b(no+|nope|nah|non|negative|incorrect|wrong|not|know)\\b.*");
     }
 
     private void speak(String msg) {
@@ -209,8 +198,6 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                             speakAndThen("TalkBack is not enabled. Opening accessibility settings now.", () -> {
                                 Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
                                 startActivity(intent);
-
-                                // ✅ Spoken feedback instead of Snackbar
                                 speak("Accessibility settings opened. Please enable TalkBack if needed.");
                             });
                         } else if (!isTalkBackEnabled()) {
@@ -223,7 +210,6 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         });
         textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
     }
-
     private void setButtonsVisible(boolean visible) {
         int v = visible ? View.VISIBLE : View.GONE;
         btnScan.setVisibility(v);
