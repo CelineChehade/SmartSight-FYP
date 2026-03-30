@@ -2,6 +2,7 @@ package com.example.smartsight;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -36,9 +37,12 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     private TextView tvGreeting;
     private Button btnScan, btnSaved, btnSettings;
-    private boolean talkBackPromptShown = false;
 
     private static final int REQ_AUDIO_PERM = 200;
+
+    // SharedPreferences
+    private static final String PREFS_NAME = "app_prefs";
+    private static final String KEY_TALKBACK_ASKED = "talkback_asked";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,7 +71,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED) {
             initSpeechRecognizer();
-            askForUserName();
+            checkUser();
         } else {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO_PERM);
@@ -81,11 +85,21 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         if (requestCode == REQ_AUDIO_PERM) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 initSpeechRecognizer();
-                askForUserName();
+                checkUser(); // ✅ FIXED
             } else {
                 speak("Microphone permission is required.");
             }
         }
+    }
+
+    private void checkUser() {
+        userViewModel.getUserProfile().observe(this, user -> {
+            if (user != null) {
+                greetUser(user.fullName);
+            } else {
+                askForUserName();
+            }
+        });
     }
 
     private void initSpeechRecognizer() {
@@ -93,22 +107,26 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US"); // Force English US
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US");
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) {}
+
             @Override public void onResults(Bundle results) {
                 ArrayList<String> matches =
                         results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+
                 if (matches != null && !matches.isEmpty()) {
                     handleSpeechResult(matches.get(0));
                 } else {
                     speakAndThen("I didn’t catch that. Please try again.", MainActivity.this::startListening);
                 }
             }
+
             @Override public void onError(int error) {
                 speakAndThen("I didn’t catch that. Please try again.", MainActivity.this::startListening);
             }
+
             @Override public void onBeginningOfSpeech() {}
             @Override public void onBufferReceived(byte[] buffer) {}
             @Override public void onEndOfSpeech() {}
@@ -132,7 +150,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     private void handleSpeechResult(String spokenText) {
         if (expectingName) {
-            pendingName = spokenText; // ✅ no normalization
+            pendingName = spokenText;
             expectingName = false;
             expectingYesNo = true;
             speakAndThen("You said " + pendingName + ". Is that correct?", this::startListening);
@@ -145,8 +163,10 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 u.language = Locale.getDefault().toString();
                 userViewModel.insertUser(u);
                 greetUser(pendingName);
+
             } else if (isNo(spokenText)) {
                 speakAndThen("Let’s try again.", this::askForUserName);
+
             } else {
                 speakAndThen("Please answer yes or no.", this::startListening);
             }
@@ -156,6 +176,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private boolean isYes(String s) {
         return s.toLowerCase().matches(".*\\b(yes|yeah|yup|yep|sure|correct|right|affirmative|oui|ouais)\\b.*");
     }
+
     private boolean isNo(String s) {
         return s.toLowerCase().matches(".*\\b(no+|nope|nah|non|negative|incorrect|wrong|not|know)\\b.*");
     }
@@ -168,15 +189,19 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     private void speakAndThen(String msg, Runnable action) {
         String utterId = "utt_" + System.currentTimeMillis();
+
         textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String utteranceId) {}
+
             @Override public void onDone(String utteranceId) {
                 if (utterId.equals(utteranceId)) {
                     runOnUiThread(action);
                 }
             }
+
             @Override public void onError(String utteranceId) {}
         });
+
         textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
     }
 
@@ -185,31 +210,37 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         tvGreeting.setText(msg);
 
         String utterId = "greet_" + System.currentTimeMillis();
+
         textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String id) {}
+
             @Override public void onDone(String id) {
                 if (utterId.equals(id)) {
                     runOnUiThread(() -> {
                         setButtonsVisible(true);
                         attachButtonLogic();
 
-                        if (!isTalkBackEnabled() && !talkBackPromptShown) {
-                            talkBackPromptShown = true;
+                        if (!isTalkBackEnabled() && !hasAskedForTalkBack()) {
+                            setTalkBackAsked();
+
                             speakAndThen("TalkBack is not enabled. Opening accessibility settings now.", () -> {
                                 Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
                                 startActivity(intent);
                                 speak("Accessibility settings opened. Please enable TalkBack if needed.");
                             });
-                        } else if (!isTalkBackEnabled()) {
+                        } else {
                             speak("Main menu ready.");
                         }
                     });
                 }
             }
+
             @Override public void onError(String id) {}
         });
+
         textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
     }
+
     private void setButtonsVisible(boolean visible) {
         int v = visible ? View.VISIBLE : View.GONE;
         btnScan.setVisibility(v);
@@ -218,10 +249,18 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     }
 
     private void attachButtonLogic() {
-        View.OnClickListener todo = v -> speak("Feature not implemented yet.");
-        btnScan.setOnClickListener(todo);
-        btnSaved.setOnClickListener(todo);
-        btnSettings.setOnClickListener(todo);
+
+        btnScan.setOnClickListener(v -> {
+            startActivity(new Intent(this, SmartScanActivity.class));
+        });
+
+        btnSaved.setOnClickListener(v -> {
+            startActivity(new Intent(this, SavedItemsActivity.class));
+        });
+
+        btnSettings.setOnClickListener(v -> {
+            startActivity(new Intent(this, SettingsActivity.class));
+        });
     }
 
     private boolean isTalkBackEnabled() {
@@ -231,11 +270,19 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         return !TextUtils.isEmpty(enabled) && enabled.toLowerCase().contains("talkback");
     }
 
+    private boolean hasAskedForTalkBack() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        return prefs.getBoolean(KEY_TALKBACK_ASKED, false);
+    }
+
+    private void setTalkBackAsked() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        prefs.edit().putBoolean(KEY_TALKBACK_ASKED, true).apply();
+    }
+
     @Override
     protected void onDestroy() {
-        if (speechRecognizer != null) {
-            speechRecognizer.destroy();
-        }
+        if (speechRecognizer != null) speechRecognizer.destroy();
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();
