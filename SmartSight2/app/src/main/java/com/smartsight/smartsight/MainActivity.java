@@ -85,7 +85,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         if (requestCode == REQ_AUDIO_PERM) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 initSpeechRecognizer();
-                checkUser(); // ✅ FIXED
+                checkUser();
             } else {
                 speak("Microphone permission is required.");
             }
@@ -220,14 +220,18 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                         setButtonsVisible(true);
                         attachButtonLogic();
 
+                        // ✅ SAME LOGIC — only fixed timing
                         if (!isTalkBackEnabled() && !hasAskedForTalkBack()) {
                             setTalkBackAsked();
 
                             speakAndThen("TalkBack is not enabled. Opening accessibility settings now.", () -> {
                                 Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
                                 startActivity(intent);
+
+                                // FIX: speak AFTER opening
                                 speak("Accessibility settings opened. Please enable TalkBack if needed.");
                             });
+
                         } else {
                             speak("Main menu ready.");
                         }
