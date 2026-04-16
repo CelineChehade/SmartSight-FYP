@@ -1,4 +1,4 @@
-package com.smartsight.smartsight;
+package com.example.smartsight;
 
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
