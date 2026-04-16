@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
         android:allowBackup="true"
@@ -24,7 +25,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Place-holder screens -->
         <activity android:name=".SmartScanActivity" android:exported="false"/>
         <activity android:name=".SavedItemsActivity" android:exported="false"/>
         <activity android:name=".SettingsActivity" android:exported="false"/>
