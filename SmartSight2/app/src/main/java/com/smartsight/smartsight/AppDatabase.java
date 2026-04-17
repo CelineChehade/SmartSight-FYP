@@ -1,7 +1,6 @@
 package com.example.smartsight;
 
 import android.content.Context;
-
 import androidx.annotation.NonNull;
 import androidx.room.Database;
 import androidx.room.Room;
@@ -33,6 +32,7 @@ public abstract class AppDatabase extends RoomDatabase {
                                     "smartsight_db"
                             )
                             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                            .fallbackToDestructiveMigration()  // safety net during development
                             .build();
                 }
             }
@@ -52,13 +52,15 @@ public abstract class AppDatabase extends RoomDatabase {
     private static final Migration MIGRATION_2_3 = new Migration(2, 3) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase db) {
-            db.execSQL("ALTER TABLE saved_notes ADD COLUMN customName TEXT");
+            db.execSQL("ALTER TABLE saved_items ADD COLUMN imageFingerprint TEXT");
         }
     };
 
+    // NEW: adds customName and scanType columns to saved_notes
     private static final Migration MIGRATION_3_4 = new Migration(3, 4) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase db) {
+            db.execSQL("ALTER TABLE saved_notes ADD COLUMN customName TEXT");
             db.execSQL("ALTER TABLE saved_notes ADD COLUMN scanType TEXT");
         }
     };
