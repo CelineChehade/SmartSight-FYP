@@ -1,5 +1,4 @@
-package com.smartsight.smartsight;
-
+package com.example.smartsight;
 
 import androidx.lifecycle.LiveData;
 import androidx.room.*;
@@ -20,4 +19,11 @@ public interface ItemDao {
 
     @Query("SELECT * FROM saved_items ORDER BY scanDate DESC")
     LiveData<List<SavedItem>> getAllItems();
+
+    @Query("SELECT * FROM saved_items")
+    List<SavedItem> getAllItemsSync();
+
+    // NEW: rename by ID (used by AppRepository.updateItemName)
+    @Query("UPDATE saved_items SET customName = :newName WHERE itemId = :itemId")
+    void updateName(int itemId, String newName);
 }
