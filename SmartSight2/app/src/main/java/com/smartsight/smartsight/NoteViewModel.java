@@ -1,11 +1,9 @@
 package com.example.smartsight;
 
 import android.app.Application;
-
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
-
 import java.util.List;
 
 public class NoteViewModel extends AndroidViewModel {
@@ -21,6 +19,10 @@ public class NoteViewModel extends AndroidViewModel {
 
     public LiveData<List<SavedNote>> getAllNotes() {
         return allNotes;
+    }
+
+    public void insert(SavedNote note) {
+        repository.insertNote(note);
     }
 
     public void delete(SavedNote note) {
