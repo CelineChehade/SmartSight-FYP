@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -16,29 +14,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
-        // This creates BuildConfig.VISION_API_KEY in your Java code
-        // Ensure you have VISION_API_KEY defined in your local.properties file
-        // Read API key from local.properties manually
-        val visionApiKey: String by lazy {
-            val properties = Properties()
-            val localPropsFile = rootProject.file("local.properties")
-            if (localPropsFile.exists()) {
-                properties.load(localPropsFile.inputStream())
-            }
-            properties.getProperty("VISION_API_KEY") ?: ""
-        }
-
-        buildConfigField(
-            "String",
-            "VISION_API_KEY",
-            "\"$visionApiKey\""
-        )
     }
 
-    buildFeatures {
-        // Required to generate the BuildConfig class
-        buildConfig = true
+    androidResources {
+        noCompress += "tflite"
     }
 
     buildTypes {
@@ -86,14 +65,12 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$camerax_version")
     implementation("androidx.camera:camera-view:$camerax_version")
 
-    // ML Kit OCR
+    // ML Kit OCR (text recognition)
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
 
-    // Networking for Cloud Vision API [cite: 5]
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
-    // JSON parsing for API responses [cite: 5]
-    implementation("com.google.code.gson:gson:2.10.1")
+    // TensorFlow Lite for offline object detection
+    implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
 
     // UI components
     implementation("androidx.recyclerview:recyclerview:1.3.2")
