@@ -17,4 +17,7 @@ public class SavedItem {
     public String imagePath;
     public String voiceNotePath;
     public boolean isMedication;
+
+    // NEW: image fingerprint for object matching (perceptual hash string, or null for text items)
+    public String imageFingerprint;
 }
