@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">SmartSight</string>
+
+    <!-- Main Screen -->
+    <string name="welcome_default">Bienvenue</string>
+    <string name="welcome_user">Bienvenue %1$s</string>
+    <string name="btn_smart_scan">Scan Intelligent</string>
+    <string name="btn_saved_items">Éléments Sauvegardés</string>
+    <string name="btn_settings">Paramètres</string>
+    <string name="smart_scan_button">Scan Intelligent</string>
+    <string name="saved_items_button">Éléments Sauvegardés</string>
+    <string name="settings_button">Paramètres</string>
+    <string name="main_menu_ready">Menu principal prêt.</string>
+
+    <!-- Onboarding -->
+    <string name="ask_name">Veuillez dire votre nom complet.</string>
+    <string name="confirm_name">Vous avez dit %1$s. Est-ce correct ?</string>
+    <string name="try_again">Essayons à nouveau.</string>
+    <string name="mic_permission_required">L\'autorisation du microphone est requise.</string>
+    <string name="please_answer_yes_no">Veuillez répondre oui ou non.</string>
+    <string name="didnt_catch">Je n\'ai pas compris. Veuillez réessayer.</string>
+
+    <!-- TalkBack -->
+    <string name="talkback_not_enabled">TalkBack n\'est pas activé. Ouverture des paramètres d\'accessibilité.</string>
+    <string name="talkback_settings_opened">Paramètres d\'accessibilité ouverts. Veuillez activer TalkBack si nécessaire.</string>
+
+    <!-- Smart Scan -->
+    <string name="smart_scan_title">Scan Intelligent</string>
+    <string name="scan_button_label">Scanner</string>
+    <string name="scan_button_description">Bouton scanner. Double-cliquez pour capturer.</string>
+    <string name="scanning">Scan en cours</string>
+    <string name="could_not_process">Désolé, impossible de traiter l\'image.</string>
+    <string name="capture_failed">Capture échouée. Veuillez réessayer.</string>
+    <string name="couldnt_identify">Je n\'ai rien pu identifier.</string>
+    <string name="object_detector_not_ready">Détecteur d\'objets non prêt.</string>
+    <string name="error_detecting">Erreur de détection des objets.</string>
+    <string name="i_see_a">Je vois un %1$s</string>
+    <string name="this_is_your">C\'est votre %1$s</string>
+
+    <!-- SmartScan startup instructions (French) -->
+    <string name="instruction_talkback_scan">Appuyez sur le bouton de scan pour démarrer le scan.</string>
+    <string name="instruction_non_talkback_scan">Maintenez le centre de l\'écran pour démarrer le scan.</string>
+
+    <!-- Save flow -->
+    <string name="ask_save">Voulez-vous sauvegarder ceci ? Dites oui ou non.</string>
+    <string name="ask_name_for_item">Quel nom voulez-vous donner à cet élément ?</string>
+    <string name="please_say_yes_no">Veuillez dire oui ou non.</string>
+    <string name="not_saving">D\'accord, je ne sauvegarde pas.</string>
+    <string name="saved_as">Sauvegardé sous %1$s</string>
+    <string name="didnt_catch_name">Je n\'ai pas entendu le nom. Veuillez le répéter.</string>
+
+    <!-- Saved Items -->
+    <string name="saved_scans_title">Éléments Sauvegardés</string>
+    <string name="no_saved_items">Vous n\'avez aucun élément sauvegardé.</string>
+    <string name="saved_items_count_one">Vous avez 1 élément sauvegardé. Appuyez sur un élément pour entendre les détails, ou maintenez pour renommer ou supprimer.</string>
+    <string name="saved_items_count_many">Vous avez %1$d éléments sauvegardés. Appuyez sur un élément pour entendre les détails, ou maintenez pour renommer ou supprimer.</string>
+    <string name="hold_to_edit">Maintenez pour renommer ou supprimer.</string>
+    <string name="this_is_text_note">C\'est une note textuelle.</string>
+    <string name="this_is_object">C\'est un objet.</string>
+    <string name="text_reads">Le texte dit : %1$s</string>
+    <string name="detected_as">Détecté comme %1$s</string>
+    <string name="saved_item_image_description">Image de l\'élément sauvegardé</string>
+    <string name="btn_delete_description">Supprimer cet élément</string>
+
+    <!-- VoiceEditManager -->
+    <string name="vem_ask_action">Que voulez-vous faire ? Dites supprimer ou renommer.</string>
+    <string name="vem_please_delete_or_rename">Veuillez dire supprimer ou renommer.</string>
+    <string name="vem_confirm_delete">Êtes-vous sûr de vouloir supprimer %1$s ?</string>
+    <string name="vem_ask_new_name">Quel est le nouveau nom ?</string>
+    <string name="vem_confirm_new_name">J\'ai entendu %1$s. Est-ce correct ?</string>
+    <string name="vem_deleted">Supprimé.</string>
+    <string name="vem_renamed_to">Renommé en %1$s.</string>
+    <string name="vem_cancelled">Annulé.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Paramètres</string>
+    <string name="settings_greeting">Paramètres. Dites l\'une de ces options : changer le nom, langue, vitesse de la voix, contraste élevé, ou réinitialiser toutes les données.</string>
+    <string name="settings_status_default">Dites une commande ou appuyez sur un bouton.</string>
+    <string name="settings_return_to_menu">%1$s Dites une autre commande, ou appuyez sur retour.</string>
+    <string name="settings_please_say_commands">Veuillez dire l\'une de ces options : changer le nom, langue, vitesse de la voix, contraste élevé, ou réinitialiser toutes les données.</string>
+
+    <!-- Change name -->
+    <string name="btn_change_name">Changer le Nom</string>
+    <string name="btn_change_name_description">Changer le nom d\'utilisateur. Double-cliquez pour activer.</string>
+    <string name="settings_ask_new_name">Quel est votre nouveau nom ?</string>
+    <string name="settings_confirm_new_name">J\'ai entendu %1$s. Est-ce correct ? Dites oui ou non.</string>
+    <string name="settings_retry_name">Essayons à nouveau. Quel est votre nouveau nom ?</string>
+    <string name="settings_name_updated">Nom mis à jour en %1$s</string>
+
+    <!-- Language -->
+    <string name="btn_language">Langue</string>
+    <string name="btn_language_description">Changer la langue de l\'application. Double-cliquez pour activer.</string>
+    <string name="settings_ask_language">Dites la langue. Anglais ou Français.</string>
+    <string name="settings_please_say_language">Veuillez dire Anglais ou Français.</string>
+    <string name="settings_language_set">Langue définie sur %1$s. L\'application va redémarrer maintenant.</string>
+    <string name="lang_english">Anglais</string>
+    <string name="lang_french">Français</string>
+
+    <!-- Voice speed -->
+    <string name="btn_voice_speed">Vitesse de la Voix</string>
+    <string name="btn_voice_speed_description">Ajuster la vitesse de la voix. Double-cliquez pour activer.</string>
+    <string name="speed_test_phrase">Le renard brun rapide saute par-dessus le chien paresseux.</string>
+    <string name="speed_prompt">Dites plus vite, plus lentement, ou bien.</string>
+    <string name="speed_saved">Vitesse de la voix enregistrée.</string>
+    <string name="please_say_speed">Veuillez dire plus vite, plus lentement, ou bien.</string>
+
+    <!-- High contrast -->
+    <string name="btn_high_contrast">Contraste Élevé</string>
+    <string name="btn_high_contrast_description">Activer ou désactiver le contraste élevé. Double-cliquez pour activer.</string>
+    <string name="contrast_state_enabled">activé</string>
+    <string name="contrast_state_disabled">désactivé</string>
+    <string name="contrast_ask">Le contraste élevé est actuellement %1$s. Dites activer ou désactiver.</string>
+    <string name="contrast_please_say">Veuillez dire activer ou désactiver.</string>
+    <string name="contrast_now_enabled">Contraste élevé activé. Redémarrage de l\'écran.</string>
+    <string name="contrast_now_disabled">Contraste élevé désactivé. Redémarrage de l\'écran.</string>
+
+    <!-- Reset data -->
+    <string name="btn_reset_data">Réinitialiser Toutes les Données</string>
+    <string name="btn_reset_data_description">Réinitialiser toutes les données sauvegardées. Double-cliquez pour activer.</string>
+    <string name="reset_confirm">Cela supprimera tous vos éléments sauvegardés, notes et paramètres. Êtes-vous sûr ? Dites oui ou non.</string>
+    <string name="reset_done">Toutes les données ont été supprimées. L\'application va redémarrer.</string>
+    <string name="reset_cancelled">Réinitialisation annulée.</string>
+
+    <!-- Reminder notifications -->
+    <string name="reminder_notification_title">Rappel SmartSight</string>
+    <string name="reminder_notification_body">Rappel : %1$s</string>
+
+    <!-- Reminder voice flow -->
+    <string name="reminder_ask_frequency">À quelle fréquence voulez-vous être rappelé ? Dites une fois, quotidien, hebdomadaire, mensuel ou annuel.</string>
+    <string name="reminder_ask_hour">À quelle heure ? Dites un nombre de 1 à 12.</string>
+    <string name="reminder_ask_minute">À quelle minute ? Dites un nombre de 0 à 59, ou dites pile pour zéro.</string>
+    <string name="reminder_ask_ampm">Le matin ou le soir ?</string>
+    <string name="reminder_confirm">%1$s Est-ce correct ? Dites oui ou non.</string>
+    <string name="reminder_summary_format">Je vous rappellerai %1$s à %2$d heures %3$s %4$s.</string>
+    <string name="reminder_please_say_frequency">Veuillez dire une fois, quotidien, hebdomadaire, mensuel ou annuel.</string>
+    <string name="reminder_please_say_hour">Veuillez dire un nombre de 1 à 12.</string>
+    <string name="reminder_please_say_minute">Veuillez dire un nombre de 0 à 59, ou dites pile.</string>
+    <string name="reminder_please_say_ampm">Veuillez dire le matin ou le soir.</string>
+    <string name="reminder_restart">Recommençons.</string>
+    <string name="reminder_saved">Rappel enregistré.</string>
+    <string name="reminder_removed">Rappel supprimé.</string>
+
+    <!-- Frequency labels -->
+    <string name="freq_once">une fois</string>
+    <string name="freq_daily">chaque jour</string>
+    <string name="freq_weekly">chaque semaine</string>
+    <string name="freq_monthly">chaque mois</string>
+    <string name="freq_yearly">chaque année</string>
+
+    <!-- AM/PM labels -->
+    <string name="ampm_am">du matin</string>
+    <string name="ampm_pm">du soir</string>
+
+    <!-- Reminder save flow -->
+    <string name="ask_add_reminder">Voulez-vous ajouter un rappel pour cet élément ? Dites oui ou non.</string>
+    <string name="reminder_failed">Impossible d\'enregistrer le rappel. Veuillez réessayer plus tard.</string>
+</resources>
