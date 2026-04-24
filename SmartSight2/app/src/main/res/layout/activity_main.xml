@@ -8,11 +8,11 @@
     android:background="@color/backgroundColor"
     android:padding="24dp">
 
-    <!-- Greeting -->
     <TextView
         android:id="@+id/tvGreeting"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:text="@string/welcome_default"
         android:textAppearance="?attr/textAppearanceHeadline4"
         android:textStyle="bold"
         android:textColor="@color/primaryTextColor"
@@ -21,7 +21,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Button Group -->
     <LinearLayout
         android:id="@+id/buttonGroup"
         android:layout_width="0dp"
@@ -69,4 +68,5 @@
             android:textColor="@color/buttonTextColor"
             android:visibility="gone"/>
     </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
