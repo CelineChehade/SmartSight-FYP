@@ -11,6 +11,13 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
 
+    <!-- NEW: Reminder / notification permissions -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
     <!-- Required for Android 11+ (TTS & Speech Recognition visibility) -->
     <queries>
         <intent>
@@ -39,7 +46,6 @@
         <activity android:name=".SmartScanActivity" android:exported="false"/>
         <activity android:name=".SavedItemsActivity" android:exported="false"/>
         <activity android:name=".SettingsActivity" android:exported="false"/>
-
+        <receiver android:name=".ReminderReceiver" android:enabled="true" android:exported="false" />
     </application>
-
 </manifest>
