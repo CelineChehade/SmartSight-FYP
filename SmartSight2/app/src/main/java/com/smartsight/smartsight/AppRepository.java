@@ -66,8 +66,15 @@ public class AppRepository {
     // =====================================================
     // ================= REMINDERS ==========================
     // =====================================================
-    public void insertReminder(Reminder reminder) {
-        executor.execute(() -> reminderDao.insert(reminder));
+    /**
+     * Insert a reminder and return its new ID via callback.
+     * Callback runs on the background thread — use handler to post to UI if needed.
+     */
+    public void insertReminder(Reminder reminder, java.util.function.LongConsumer onInserted) {
+        executor.execute(() -> {
+            long newId = reminderDao.insert(reminder);
+            if (onInserted != null) onInserted.accept(newId);
+        });
     }
 
     public void updateReminder(Reminder reminder) {
@@ -78,8 +85,21 @@ public class AppRepository {
         executor.execute(() -> reminderDao.delete(reminder));
     }
 
+    public void deleteAllRemindersForItem(int itemId) {
+        executor.execute(() -> reminderDao.deleteAllForItem(itemId));
+    }
+
     public LiveData<List<Reminder>> getRemindersForItem(int itemId) {
         return reminderDao.getRemindersForItem(itemId);
+    }
+
+    /** Background thread. Returns null if none exists. */
+    public void getFirstReminderForItem(int itemId,
+                                        java.util.function.Consumer<Reminder> callback) {
+        executor.execute(() -> {
+            Reminder r = reminderDao.getFirstForItemSync(itemId);
+            if (callback != null) callback.accept(r);
+        });
     }
 
     // =====================================================
@@ -91,5 +111,19 @@ public class AppRepository {
 
     public LiveData<UserProfile> getUserProfile() {
         return userDao.getUserProfile();
+    }
+
+    public void wipeAllData(android.content.Context context) {
+        executor.execute(() -> {
+            AppDatabase db = AppDatabase.getInstance(context);
+            db.clearAllTables();
+
+            // Also delete saved images folder
+            java.io.File dir = new java.io.File(context.getFilesDir(), "saved_images");
+            if (dir.exists()) {
+                java.io.File[] files = dir.listFiles();
+                if (files != null) for (java.io.File f : files) f.delete();
+            }
+        });
     }
 }
