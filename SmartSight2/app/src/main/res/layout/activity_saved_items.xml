@@ -9,12 +9,12 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Saved Scans"
+        android:text="@string/saved_scans_title"
         android:textSize="22sp"
         android:textStyle="bold"
         android:textColor="@color/primaryTextColor"
         android:padding="16dp"
-        android:contentDescription="Saved Scans screen" />
+        android:contentDescription="@string/saved_scans_title" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerSavedItems"
@@ -22,5 +22,4 @@
         android:layout_height="match_parent"
         android:padding="8dp"
         android:clipToPadding="false" />
-
 </LinearLayout>
