@@ -1,5 +1,6 @@
 package com.example.smartsight;
 
+import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.Looper;
@@ -7,7 +8,6 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -24,19 +24,20 @@ import java.util.Locale;
 public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.ItemHolder> {
 
     public interface OnItemActionListener {
-        void onItemClick(SavedItem item);       // short tap → read details
-        void onItemHold(SavedItem item);        // long hold → open action menu
-        void onItemDelete(SavedItem item);      // trash icon
+        void onItemClick(SavedItem item);
+        void onItemHold(SavedItem item);
     }
 
     private List<SavedItem> items = new ArrayList<>();
+    private final Context context;
     private final OnItemActionListener listener;
     private final SimpleDateFormat dateFormat =
             new SimpleDateFormat("dd MMM yyyy 'at' HH:mm", Locale.getDefault());
 
     private static final long HOLD_DURATION_MS = 2000;
 
-    public SavedItemsAdapter(OnItemActionListener listener) {
+    public SavedItemsAdapter(Context context, OnItemActionListener listener) {
+        this.context = context.getApplicationContext();
         this.listener = listener;
     }
 
@@ -57,25 +58,28 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
     public void onBindViewHolder(@NonNull ItemHolder h, int position) {
         SavedItem item = items.get(position);
 
-        // Name
-        h.txtCustomName.setText(item.customName != null ? item.customName : "(no name)");
+        h.txtCustomName.setText(item.customName != null ? item.customName : "");
 
-        // Category label
-        String categoryLabel = "text".equalsIgnoreCase(item.category) ? "Note (Text)" : "Object";
+        String categoryLabel;
+        if ("text".equalsIgnoreCase(item.category)) {
+            categoryLabel = context.getString(R.string.this_is_text_note);
+        } else {
+            categoryLabel = context.getString(R.string.this_is_object);
+        }
         h.txtCategory.setText(categoryLabel);
 
-        // Date & time
         h.txtDate.setText(dateFormat.format(new Date(item.scanDate)));
 
-        // Detected preview
         if ("text".equalsIgnoreCase(item.category)) {
-            h.txtDetected.setText("\"" + (item.detectedName != null ? item.detectedName : "") + "\"");
+            h.txtDetected.setText("\"" +
+                    (item.detectedName != null ? item.detectedName : "") + "\"");
         } else {
-            h.txtDetected.setText("Detected: " +
-                    (item.detectedName != null ? item.detectedName : "unknown"));
+            String translated = item.detectedName != null
+                    ? LabelTranslator.translate(context, item.detectedName)
+                    : "";
+            h.txtDetected.setText(context.getString(R.string.detected_as, translated));
         }
 
-        // Image
         if (item.imagePath != null && !item.imagePath.isEmpty()) {
             File f = new File(item.imagePath);
             if (f.exists()) {
@@ -87,7 +91,6 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
             h.imgThumbnail.setImageResource(android.R.drawable.ic_menu_edit);
         }
 
-        // ─── TAP vs HOLD handling ───
         final Handler holdHandler = new Handler(Looper.getMainLooper());
         final boolean[] holdTriggered = {false};
 
@@ -104,7 +107,6 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
                 case MotionEvent.ACTION_UP:
                     holdHandler.removeCallbacksAndMessages(null);
                     if (!holdTriggered[0]) {
-                        // It was a short tap
                         if (listener != null) listener.onItemClick(item);
                     }
                     return true;
@@ -116,16 +118,11 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
             return false;
         });
 
-        h.btnDelete.setOnClickListener(v -> {
-            if (listener != null) listener.onItemDelete(item);
-        });
-
-        // Accessibility
         h.itemView.setContentDescription(
                 h.txtCustomName.getText() + ", " +
-                        categoryLabel + ", saved on " +
-                        h.txtDate.getText() +
-                        ". Hold to rename or delete."
+                        categoryLabel + ", " +
+                        h.txtDate.getText() + ". " +
+                        context.getString(R.string.hold_to_edit)
         );
     }
 
@@ -137,7 +134,6 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
     static class ItemHolder extends RecyclerView.ViewHolder {
         ImageView imgThumbnail;
         TextView txtCustomName, txtCategory, txtDate, txtDetected;
-        ImageButton btnDelete;
 
         ItemHolder(@NonNull View v) {
             super(v);
@@ -146,7 +142,6 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
             txtCategory = v.findViewById(R.id.txtCategory);
             txtDate = v.findViewById(R.id.txtDate);
             txtDetected = v.findViewById(R.id.txtDetected);
-            btnDelete = v.findViewById(R.id.btnDelete);
         }
     }
 }
