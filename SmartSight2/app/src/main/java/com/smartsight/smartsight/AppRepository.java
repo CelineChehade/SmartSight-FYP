@@ -116,9 +116,16 @@ public class AppRepository {
     public void wipeAllData(android.content.Context context) {
         executor.execute(() -> {
             AppDatabase db = AppDatabase.getInstance(context);
+
+            // Cancel all scheduled alarms before wiping DB
+            List<Reminder> reminders = db.reminderDao().getAllActiveSync();
+            for (Reminder r : reminders) {
+                ReminderScheduler.cancel(context, r.reminderId);
+            }
+
             db.clearAllTables();
 
-            // Also delete saved images folder
+            // Delete saved images folder
             java.io.File dir = new java.io.File(context.getFilesDir(), "saved_images");
             if (dir.exists()) {
                 java.io.File[] files = dir.listFiles();
