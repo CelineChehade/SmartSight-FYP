@@ -1,52 +1,20 @@
 package com.example.smartsight;
 
 import android.content.Context;
-
 import android.content.Intent;
-
 import android.os.Bundle;
-
+import android.os.Handler;
+import android.os.Looper;
 import android.speech.RecognitionListener;
-
 import android.speech.RecognizerIntent;
-
 import android.speech.SpeechRecognizer;
-
 import android.speech.tts.TextToSpeech;
-
 import android.speech.tts.UtteranceProgressListener;
-
 import android.util.Log;
-
 import java.util.ArrayList;
-
 import java.util.Calendar;
-
-/**
-
- * Guides the user through a voice conversation to define a reminder.
-
- * Steps: frequency → hour → minute → AM/PM → confirm.
-
- *
-
- * Usage:
-
- *   ReminderVoiceFlow flow = new ReminderVoiceFlow(context, tts, new Callbacks() {
-
- *       @Override public void onReminderDefined(String repeatType, long reminderTimeMs) { ... }
-
- *       @Override public void onCancelled() { ... }
-
- *   });
-
- *   flow.start();
-
- *   ...
-
- *   flow.shutdown();  // when done, in onDestroy
-
- */
+import java.util.HashMap;
+import java.util.Map;
 
 public class ReminderVoiceFlow {
 
@@ -54,11 +22,7 @@ public class ReminderVoiceFlow {
 
     public interface Callbacks {
 
-        /** Called on the UI thread when the user confirms a reminder. */
-
         void onReminderDefined(String repeatType, long reminderTimeMs);
-
-        /** Called on the UI thread if the user cancels at any point. */
 
         void onCancelled();
 
@@ -76,17 +40,21 @@ public class ReminderVoiceFlow {
 
     private final Intent recognizerIntent;
 
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     private Step step = Step.FREQUENCY;
 
-    // Collected answers
+    private String repeatType;
 
-    private String repeatType;   // "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"
+    private int hour12;
 
-    private int hour12;          // 1..12
-
-    private int minute;          // 0..59
+    private int minute;
 
     private boolean isPm;
+
+    private boolean isListening = false;
+
+    private boolean isShutdown = false;
 
     public ReminderVoiceFlow(Context context, TextToSpeech tts, Callbacks callbacks) {
 
@@ -108,6 +76,8 @@ public class ReminderVoiceFlow {
 
                 LocaleManager.getSttLanguageTag(context));
 
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+
         recognizer.setRecognitionListener(new RecognitionListener() {
 
             @Override public void onReadyForSpeech(Bundle params) {}
@@ -128,17 +98,21 @@ public class ReminderVoiceFlow {
 
             public void onResults(Bundle results) {
 
+                isListening = false;
+
+                if (isShutdown) return;
+
                 ArrayList<String> matches =
 
                         results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
 
                 if (matches != null && !matches.isEmpty()) {
 
-                    handleSpeech(matches.get(0));
+                    handleSpeechWithAlternatives(matches);
 
                 } else {
 
-                    repromptCurrentStep(context.getString(R.string.didnt_catch));
+                    repromptCurrentStep();
 
                 }
 
@@ -148,15 +122,59 @@ public class ReminderVoiceFlow {
 
             public void onError(int error) {
 
-                repromptCurrentStep(context.getString(R.string.didnt_catch));
+                isListening = false;
+
+                if (isShutdown) return;
+
+                Log.w(TAG, "STT error: " + error);
+
+                switch (error) {
+
+                    case SpeechRecognizer.ERROR_NO_MATCH:
+
+                    case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
+
+                        repromptCurrentStep();
+
+                        break;
+
+                    case SpeechRecognizer.ERROR_RECOGNIZER_BUSY:
+
+                    case SpeechRecognizer.ERROR_CLIENT:
+
+                        mainHandler.postDelayed(ReminderVoiceFlow.this::startListening, 600);
+
+                        break;
+
+                    case SpeechRecognizer.ERROR_NETWORK:
+
+                    case SpeechRecognizer.ERROR_NETWORK_TIMEOUT:
+
+                        mainHandler.postDelayed(ReminderVoiceFlow.this::startListening, 800);
+
+                        break;
+
+                    case SpeechRecognizer.ERROR_AUDIO:
+
+                    case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
+
+                        speak(context.getString(R.string.didnt_catch));
+
+                        if (callbacks != null) callbacks.onCancelled();
+
+                        break;
+
+                    default:
+
+                        mainHandler.postDelayed(ReminderVoiceFlow.this::startListening, 600);
+
+                }
 
             }
 
         });
 
     }
-
-    /** Kick off the conversation from step 1. */
 
     public void start() {
 
@@ -166,11 +184,15 @@ public class ReminderVoiceFlow {
 
     }
 
-    /** Release STT resources. Call from host activity's onDestroy. */
-
     public void shutdown() {
 
         try {
+
+            isShutdown = true;
+
+            isListening = false;
+
+            mainHandler.removeCallbacksAndMessages(null);
 
             recognizer.stopListening();
 
@@ -180,211 +202,357 @@ public class ReminderVoiceFlow {
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 
-    // Speech handling per step
+    // Speech dispatch — tries each alternative the engine returned
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 
-    private void handleSpeech(String raw) {
+    private void handleSpeechWithAlternatives(ArrayList<String> alternatives) {
 
-        String spoken = raw.toLowerCase().trim();
+        Log.d(TAG, "step=" + step + " alternatives=" + alternatives);
 
-        Log.d(TAG, "step=" + step + " heard=" + spoken);
+        for (String alt : alternatives) {
 
-        // Global cancel keywords
+            String s = alt.toLowerCase().trim();
 
-        if (containsAny(spoken, "cancel", "stop", "annuler", "arrêter", "arreter")) {
+            if (containsAny(s, "cancel", "stop", "annuler", "arrêter", "arreter")) {
 
-            speak(context.getString(R.string.vem_cancelled));
+                speak(context.getString(R.string.vem_cancelled));
 
-            if (callbacks != null) callbacks.onCancelled();
-
-            return;
-
-        }
-
-        switch (step) {
-
-            case FREQUENCY: handleFrequency(spoken); break;
-
-            case HOUR: handleHour(spoken); break;
-
-            case MINUTE: handleMinute(spoken); break;
-
-            case AMPM: handleAmPm(spoken); break;
-
-            case CONFIRM: handleConfirm(spoken); break;
-
-        }
-
-    }
-
-    private void handleFrequency(String s) {
-
-        if (containsAny(s, "once", "one time", "single", "just once",
-
-                "une fois", "seulement une fois")) {
-
-            repeatType = "ONCE";
-
-        } else if (containsAny(s, "daily", "every day", "each day",
-
-                "tous les jours", "chaque jour", "quotidien")) {
-
-            repeatType = "DAILY";
-
-        } else if (containsAny(s, "weekly", "every week", "each week",
-
-                "chaque semaine", "hebdomadaire", "toutes les semaines")) {
-
-            repeatType = "WEEKLY";
-
-        } else if (containsAny(s, "monthly", "every month", "each month",
-
-                "chaque mois", "mensuel", "tous les mois")) {
-
-            repeatType = "MONTHLY";
-
-        } else if (containsAny(s, "yearly", "annually", "every year", "each year",
-
-                "chaque année", "chaque annee", "annuel", "tous les ans")) {
-
-            repeatType = "YEARLY";
-
-        } else {
-
-            repromptCurrentStep(context.getString(R.string.reminder_please_say_frequency));
-
-            return;
-
-        }
-
-        step = Step.HOUR;
-
-        speakAndListen(context.getString(R.string.reminder_ask_hour));
-
-    }
-
-    private void handleHour(String s) {
-
-        Integer n = parseNumber(s);
-
-        if (n == null || n < 1 || n > 12) {
-
-            repromptCurrentStep(context.getString(R.string.reminder_please_say_hour));
-
-            return;
-
-        }
-
-        hour12 = n;
-
-        step = Step.MINUTE;
-
-        speakAndListen(context.getString(R.string.reminder_ask_minute));
-
-    }
-
-    private void handleMinute(String s) {
-
-        if (containsAny(s, "o'clock", "oclock", "sharp", "pile")) {
-
-            minute = 0;
-
-        } else {
-
-            Integer n = parseNumber(s);
-
-            if (n == null || n < 0 || n > 59) {
-
-                repromptCurrentStep(context.getString(R.string.reminder_please_say_minute));
+                if (callbacks != null) callbacks.onCancelled();
 
                 return;
 
             }
 
-            minute = n;
+        }
+
+        for (String alt : alternatives) {
+
+            if (tryHandle(alt)) return;
 
         }
 
-        step = Step.AMPM;
-
-        speakAndListen(context.getString(R.string.reminder_ask_ampm));
+        repromptCurrentStep();
 
     }
 
-    private void handleAmPm(String s) {
+    private boolean tryHandle(String raw) {
 
-        if (containsAny(s, "am", "a.m", "morning", "matin", "du matin")) {
+        String s = raw.toLowerCase().trim();
 
-            isPm = false;
+        switch (step) {
 
-        } else if (containsAny(s, "pm", "p.m", "evening", "afternoon", "night",
+            case FREQUENCY: {
 
-                "soir", "après-midi", "apres-midi", "du soir", "nuit")) {
+                String freq = matchFrequency(s);
 
-            isPm = true;
+                if (freq != null) {
 
-        } else {
+                    repeatType = freq;
 
-            repromptCurrentStep(context.getString(R.string.reminder_please_say_ampm));
+                    step = Step.HOUR;
 
-            return;
+                    speakAndListen(context.getString(R.string.reminder_ask_hour));
+
+                    return true;
+
+                }
+
+                return false;
+
+            }
+
+            case HOUR: {
+
+                Integer n = parseNumber(s);
+
+                if (n != null && n >= 1 && n <= 12) {
+
+                    hour12 = n;
+
+                    step = Step.MINUTE;
+
+                    speakAndListen(context.getString(R.string.reminder_ask_minute));
+
+                    return true;
+
+                }
+
+                return false;
+
+            }
+
+            case MINUTE: {
+
+                if (containsAny(s, "o'clock", "oclock", "o clock", "sharp", "pile")) {
+
+                    minute = 0;
+
+                    step = Step.AMPM;
+
+                    speakAndListen(context.getString(R.string.reminder_ask_ampm));
+
+                    return true;
+
+                }
+
+                Integer n = parseNumber(s);
+
+                if (n != null && n >= 0 && n <= 59) {
+
+                    minute = n;
+
+                    step = Step.AMPM;
+
+                    speakAndListen(context.getString(R.string.reminder_ask_ampm));
+
+                    return true;
+
+                }
+
+                return false;
+
+            }
+
+            case AMPM: {
+
+                if (containsAny(s, "am", "a.m", "a m", "morning", "matin", "du matin")) {
+
+                    isPm = false;
+
+                    step = Step.CONFIRM;
+
+                    speakAndListen(context.getString(R.string.reminder_confirm, buildSummary()));
+
+                    return true;
+
+                }
+
+                if (containsAny(s, "pm", "p.m", "p m", "evening", "afternoon", "night",
+
+                        "soir", "après-midi", "apres-midi", "du soir", "nuit")) {
+
+                    isPm = true;
+
+                    step = Step.CONFIRM;
+
+                    speakAndListen(context.getString(R.string.reminder_confirm, buildSummary()));
+
+                    return true;
+
+                }
+
+                return false;
+
+            }
+
+            case CONFIRM: {
+
+                if (isYes(s)) {
+
+                    long fireAt = computeFireTime();
+
+                    if (callbacks != null) callbacks.onReminderDefined(repeatType, fireAt);
+
+                    return true;
+
+                }
+
+                if (isNo(s)) {
+
+                    speakAndThen(context.getString(R.string.reminder_restart), this::start);
+
+                    return true;
+
+                }
+
+                return false;
+
+            }
 
         }
 
-        step = Step.CONFIRM;
-
-        String summary = buildSummary();
-
-        speakAndListen(context.getString(R.string.reminder_confirm, summary));
+        return false;
 
     }
 
-    private void handleConfirm(String s) {
+    private String matchFrequency(String s) {
 
-        if (isYes(s)) {
+        if (containsAny(s, "once", "one time", "single", "just once",
 
-            long fireAt = computeFireTime();
+                "une fois", "seulement une fois")) return "ONCE";
 
-            if (callbacks != null) callbacks.onReminderDefined(repeatType, fireAt);
+        if (containsAny(s, "daily", "every day", "each day",
 
-        } else if (isNo(s)) {
+                "tous les jours", "chaque jour", "quotidien")) return "DAILY";
 
-            speakAndThen(context.getString(R.string.reminder_restart), this::start);
+        if (containsAny(s, "weekly", "every week", "each week",
 
-        } else {
+                "chaque semaine", "hebdomadaire", "toutes les semaines")) return "WEEKLY";
 
-            repromptCurrentStep(context.getString(R.string.please_say_yes_no));
+        if (containsAny(s, "monthly", "every month", "each month",
+
+                "chaque mois", "mensuel", "tous les mois")) return "MONTHLY";
+
+        if (containsAny(s, "yearly", "annually", "every year", "each year",
+
+                "chaque année", "chaque annee", "annuel", "tous les ans")) return "YEARLY";
+
+        return null;
+
+    }
+
+    // ─────────────────────────────────────────────────────────────
+
+    // Robust number parsing
+
+    // ─────────────────────────────────────────────────────────────
+
+    private static final Map<String, Integer> WORD_TO_NUM = new HashMap<>();
+
+    static {
+
+        // English
+
+        WORD_TO_NUM.put("zero", 0);     WORD_TO_NUM.put("oh", 0);
+
+        WORD_TO_NUM.put("one", 1);      WORD_TO_NUM.put("won", 1);
+
+        WORD_TO_NUM.put("two", 2);      WORD_TO_NUM.put("to", 2);
+
+        WORD_TO_NUM.put("too", 2);
+
+        WORD_TO_NUM.put("three", 3);    WORD_TO_NUM.put("tree", 3);
+
+        WORD_TO_NUM.put("free", 3);
+
+        WORD_TO_NUM.put("four", 4);     WORD_TO_NUM.put("for", 4);
+
+        WORD_TO_NUM.put("five", 5);
+
+        WORD_TO_NUM.put("six", 6);      WORD_TO_NUM.put("sex", 6);
+
+        WORD_TO_NUM.put("seven", 7);
+
+        WORD_TO_NUM.put("eight", 8);    WORD_TO_NUM.put("ate", 8);
+
+        WORD_TO_NUM.put("nine", 9);
+
+        WORD_TO_NUM.put("ten", 10);
+
+        WORD_TO_NUM.put("eleven", 11);  WORD_TO_NUM.put("twelve", 12);
+
+        WORD_TO_NUM.put("thirteen", 13); WORD_TO_NUM.put("fourteen", 14);
+
+        WORD_TO_NUM.put("fifteen", 15); WORD_TO_NUM.put("sixteen", 16);
+
+        WORD_TO_NUM.put("seventeen", 17); WORD_TO_NUM.put("eighteen", 18);
+
+        WORD_TO_NUM.put("nineteen", 19);
+
+        WORD_TO_NUM.put("twenty", 20);  WORD_TO_NUM.put("thirty", 30);
+
+        WORD_TO_NUM.put("forty", 40);   WORD_TO_NUM.put("fourty", 40);
+
+        WORD_TO_NUM.put("fifty", 50);
+
+        // French
+
+        WORD_TO_NUM.put("zéro", 0);
+
+        WORD_TO_NUM.put("un", 1);       WORD_TO_NUM.put("une", 1);
+
+        WORD_TO_NUM.put("deux", 2);     WORD_TO_NUM.put("trois", 3);
+
+        WORD_TO_NUM.put("quatre", 4);   WORD_TO_NUM.put("cinq", 5);
+
+        WORD_TO_NUM.put("sept", 7);     WORD_TO_NUM.put("huit", 8);
+
+        WORD_TO_NUM.put("neuf", 9);     WORD_TO_NUM.put("dix", 10);
+
+        WORD_TO_NUM.put("onze", 11);    WORD_TO_NUM.put("douze", 12);
+
+        WORD_TO_NUM.put("treize", 13);  WORD_TO_NUM.put("quatorze", 14);
+
+        WORD_TO_NUM.put("quinze", 15);  WORD_TO_NUM.put("seize", 16);
+
+        WORD_TO_NUM.put("vingt", 20);   WORD_TO_NUM.put("trente", 30);
+
+        WORD_TO_NUM.put("quarante", 40); WORD_TO_NUM.put("cinquante", 50);
+
+    }
+
+    private Integer parseNumber(String raw) {
+
+        if (raw == null) return null;
+
+        String s = raw.toLowerCase().trim()
+
+                .replaceAll("[.,!?]", "")
+
+                .replaceAll("-", " ")
+
+                .replaceAll("\\s+", " ");
+
+        // 1) Look for any digit run
+
+        java.util.regex.Matcher digitMatch = java.util.regex.Pattern
+
+                .compile("\\d+").matcher(s);
+
+        if (digitMatch.find()) {
+
+            try {
+
+                return Integer.parseInt(digitMatch.group());
+
+            } catch (NumberFormatException ignored) {}
 
         }
 
+        // 2) Single-word lookup
+
+        Integer direct = WORD_TO_NUM.get(s);
+
+        if (direct != null) return direct;
+
+        // 3) Compound words ("thirty five" → 35)
+
+        String[] tokens = s.split("\\s+");
+
+        int total = 0;
+
+        boolean anyFound = false;
+
+        for (String token : tokens) {
+
+            Integer v = WORD_TO_NUM.get(token);
+
+            if (v != null) {
+
+                total += v;
+
+                anyFound = true;
+
+            }
+
+        }
+
+        if (anyFound) return total;
+
+        return null;
+
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-
-    // Helpers
-
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-
-     * Compute the next absolute time (ms since epoch) when the reminder should fire,
-
-     * based on hour12, minute, and isPm. If the target time has already passed today,
-
-     * push it to the next valid occurrence (next day for DAILY/ONCE; still the same day
-
-     * if >5 minutes in the future).
-
-     */
+    // ─────────────────────────────────────────────────────────────
 
     private long computeFireTime() {
 
-        int hour24 = hour12 % 12;           // 12 AM → 0, 1-11 AM → 1-11
+        int hour24 = hour12 % 12;
 
-        if (isPm) hour24 += 12;             // 12 PM → 12, 1-11 PM → 13-23
+        if (isPm) hour24 += 12;
 
         Calendar c = Calendar.getInstance();
 
@@ -395,8 +563,6 @@ public class ReminderVoiceFlow {
         c.set(Calendar.SECOND, 0);
 
         c.set(Calendar.MILLISECOND, 0);
-
-        // If the computed time is in the past (or within 30 seconds), bump to next day.
 
         long now = System.currentTimeMillis();
 
@@ -444,74 +610,6 @@ public class ReminderVoiceFlow {
 
     }
 
-    /**
-
-     * Parse a spoken number from "5", "twelve", "trente", etc. Returns null if unparseable.
-
-     */
-
-    private Integer parseNumber(String s) {
-
-        s = s.trim();
-
-        // Try plain integer parse (handles "5", "30", "12")
-
-        try {
-
-            return Integer.parseInt(s.replaceAll("[^0-9]", ""));
-
-        } catch (NumberFormatException ignored) {}
-
-        // Fallback: word mapping for common spoken numbers (en + fr)
-
-        switch (s) {
-
-            case "zero": case "o'clock": case "oclock": case "zéro": case "zero.":
-
-                return 0;
-
-            case "one": case "un": case "une": return 1;
-
-            case "two": case "deux":           return 2;
-
-            case "three": case "trois":        return 3;
-
-            case "four": case "quatre":        return 4;
-
-            case "five": case "cinq":          return 5;
-
-            case "six":                        return 6;
-
-            case "seven": case "sept":         return 7;
-
-            case "eight": case "huit":         return 8;
-
-            case "nine": case "neuf":          return 9;
-
-            case "ten": case "dix":            return 10;
-
-            case "eleven": case "onze":        return 11;
-
-            case "twelve": case "douze":       return 12;
-
-            case "thirteen": case "treize":    return 13;
-
-            case "fourteen": case "quatorze":  return 14;
-
-            case "fifteen": case "quinze":     return 15;
-
-            case "twenty": case "vingt":       return 20;
-
-            case "thirty": case "trente":      return 30;
-
-            case "forty-five": case "fortyfive": case "quarante-cinq": return 45;
-
-        }
-
-        return null;
-
-    }
-
     private boolean containsAny(String s, String... needles) {
 
         for (String n : needles) if (s.contains(n)) return true;
@@ -532,11 +630,11 @@ public class ReminderVoiceFlow {
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 
-    // Speak + listen plumbing (no overlap: STT only starts after TTS done)
+    // TTS / STT plumbing
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 
     private void speak(String msg) {
 
@@ -562,13 +660,7 @@ public class ReminderVoiceFlow {
 
             @Override public void onDone(String id) {
 
-                if (utterId.equals(id)) {
-
-                    android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
-
-                    h.post(action);
-
-                }
+                if (utterId.equals(id) && !isShutdown) mainHandler.post(action);
 
             }
 
@@ -582,37 +674,51 @@ public class ReminderVoiceFlow {
 
     private void speakAndListen(String msg) {
 
-        speakAndThen(msg, this::startListening);
+        speakAndThen(msg, () -> mainHandler.postDelayed(this::startListening, 300));
 
     }
 
     private void startListening() {
 
+        if (isShutdown || isListening) {
+
+            Log.d(TAG, "startListening skipped: shutdown=" + isShutdown + " listening=" + isListening);
+
+            return;
+
+        }
+
         try {
+
+            isListening = true;
 
             recognizer.startListening(recognizerIntent);
 
         } catch (Exception e) {
 
+            isListening = false;
+
             Log.e(TAG, "startListening failed: " + e.getMessage());
+
+            mainHandler.postDelayed(this::startListening, 600);
 
         }
 
     }
 
-    private void repromptCurrentStep(String preamble) {
+    private void repromptCurrentStep() {
 
         String msg;
 
         switch (step) {
 
-            case FREQUENCY: msg = context.getString(R.string.reminder_ask_frequency); break;
+            case FREQUENCY: msg = context.getString(R.string.reminder_please_say_frequency); break;
 
-            case HOUR:      msg = context.getString(R.string.reminder_ask_hour); break;
+            case HOUR:      msg = context.getString(R.string.reminder_please_say_hour); break;
 
-            case MINUTE:    msg = context.getString(R.string.reminder_ask_minute); break;
+            case MINUTE:    msg = context.getString(R.string.reminder_please_say_minute); break;
 
-            case AMPM:      msg = context.getString(R.string.reminder_ask_ampm); break;
+            case AMPM:      msg = context.getString(R.string.reminder_please_say_ampm); break;
 
             case CONFIRM:   msg = context.getString(R.string.reminder_confirm, buildSummary()); break;
 
@@ -620,7 +726,7 @@ public class ReminderVoiceFlow {
 
         }
 
-        speakAndListen(preamble + " " + msg);
+        speakAndListen(msg);
 
     }
 
