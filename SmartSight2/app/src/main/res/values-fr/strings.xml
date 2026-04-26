@@ -156,4 +156,8 @@
     <!-- Reminder save flow -->
     <string name="ask_add_reminder">Voulez-vous ajouter un rappel pour cet élément ? Dites oui ou non.</string>
     <string name="reminder_failed">Impossible d\'enregistrer le rappel. Veuillez réessayer plus tard.</string>
+
+    <!-- VoiceEditManager -->
+    <string name="vem_ask_action_no_reminder">Que voulez-vous faire ? Dites renommer, ajouter un rappel, ou supprimer.</string>
+    <string name="vem_ask_action_with_reminder">Que voulez-vous faire ? Dites renommer, modifier le rappel, supprimer le rappel, ou supprimer.</string>
 </resources>
