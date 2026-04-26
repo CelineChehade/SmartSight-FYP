@@ -156,4 +156,9 @@
     <!-- Reminder save flow -->
     <string name="ask_add_reminder">Would you like to add a reminder for this item? Say yes or no.</string>
     <string name="reminder_failed">Couldn\'t save the reminder. Please try again later.</string>
+
+    <!-- VoiceEditManager -->
+    <string name="vem_ask_action_no_reminder">What do you want to do? Say rename, add reminder, or delete.</string>
+    <string name="vem_ask_action_with_reminder">What do you want to do? Say rename, edit reminder, delete reminder, or delete.</string>
+
 </resources>
