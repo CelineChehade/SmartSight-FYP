@@ -1174,6 +1174,16 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        // Stop any in-flight voice flows when app backgrounds
+        if (reminderFlow != null) {
+            reminderFlow.shutdown();
+            reminderFlow = null;
+        }
+    }
+
+    @Override
 
     protected void onDestroy() {
 
