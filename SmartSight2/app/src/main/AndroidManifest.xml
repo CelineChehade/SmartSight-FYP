@@ -46,6 +46,23 @@
         <activity android:name=".SmartScanActivity" android:exported="false"/>
         <activity android:name=".SavedItemsActivity" android:exported="false"/>
         <activity android:name=".SettingsActivity" android:exported="false"/>
-        <receiver android:name=".ReminderReceiver" android:enabled="true" android:exported="false" />
+
+        <!-- Reminder alarm receiver -->
+        <receiver
+            android:name=".ReminderReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- Boot receiver — re-schedules reminders after phone restart -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="false"
+            android:directBootAware="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>
