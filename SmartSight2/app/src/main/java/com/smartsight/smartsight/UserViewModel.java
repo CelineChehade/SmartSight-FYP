@@ -1,5 +1,4 @@
-package com.smartsight.smartsight;
-
+package com.example.smartsight;
 
 import android.app.Application;
 
@@ -10,16 +9,16 @@ import androidx.lifecycle.LiveData;
 public class UserViewModel extends AndroidViewModel {
 
     private final AppRepository repository;
-    private final LiveData<UserProfile> user;
+    private final LiveData<UserProfile> userProfile;
 
     public UserViewModel(@NonNull Application application) {
         super(application);
         repository = new AppRepository(application);
-        user = repository.getUserProfile();
+        userProfile = repository.getUserProfile();
     }
 
-    public LiveData<UserProfile> getUser() {
-        return user;
+    public LiveData<UserProfile> getUserProfile() {
+        return userProfile;
     }
 
     public void insertUser(UserProfile userProfile) {
