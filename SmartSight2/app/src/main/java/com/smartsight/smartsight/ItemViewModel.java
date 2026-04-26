@@ -1,11 +1,9 @@
 package com.example.smartsight;
 
 import android.app.Application;
-
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
-
 import java.util.List;
 
 public class ItemViewModel extends AndroidViewModel {
@@ -29,5 +27,9 @@ public class ItemViewModel extends AndroidViewModel {
 
     public void delete(SavedItem item) {
         repository.deleteItem(item);
+    }
+
+    public void rename(int itemId, String newName) {
+        repository.updateItemName(itemId, newName);
     }
 }
