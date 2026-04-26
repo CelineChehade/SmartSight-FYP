@@ -1,5 +1,4 @@
-package com.smartsight.smartsight;
-
+package com.example.smartsight;
 
 import androidx.lifecycle.LiveData;
 import androidx.room.*;
