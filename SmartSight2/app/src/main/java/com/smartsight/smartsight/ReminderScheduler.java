@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
 
+import java.util.List;
+
 public class ReminderScheduler {
 
     private static final String TAG = "ReminderScheduler";
@@ -94,5 +96,14 @@ public class ReminderScheduler {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
         return PendingIntent.getBroadcast(context, reminderId, intent, flags);
+    }
+
+    /**
+     * Cancel ALL scheduled reminders. Used when resetting app data.
+     */
+    public static void cancelAll(Context context, List<Integer> reminderIds) {
+        for (int id : reminderIds) {
+            cancel(context, id);
+        }
     }
 }
