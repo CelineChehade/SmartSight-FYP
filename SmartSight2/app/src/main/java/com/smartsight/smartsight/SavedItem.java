@@ -11,13 +11,12 @@ public class SavedItem {
 
     public String customName;
     public String detectedName;
-    public String category;
+    public String category;          // "text" or "object"
     public long scanDate;
-    public Long expirationDate;
     public String imagePath;
-    public String voiceNotePath;
     public boolean isMedication;
+    public String imageFingerprint;  // perceptual hash for object matching
 
-    // NEW: image fingerprint for object matching (perceptual hash string, or null for text items)
-    public String imageFingerprint;
+    // REMOVED: expirationDate (never used)
+    // REMOVED: voiceNotePath (never used)
 }
