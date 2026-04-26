@@ -1,329 +1,551 @@
 package com.example.smartsight;
 
 import android.content.Context;
+
 import android.content.Intent;
-import android.media.AudioManager;
-import android.media.ToneGenerator;
-import android.os.Build;
+
 import android.os.Bundle;
+
 import android.os.Handler;
+
 import android.os.Looper;
-import android.os.VibrationEffect;
-import android.os.Vibrator;
+
 import android.speech.RecognitionListener;
+
 import android.speech.RecognizerIntent;
+
 import android.speech.SpeechRecognizer;
+
 import android.speech.tts.TextToSpeech;
+
 import android.speech.tts.UtteranceProgressListener;
 
-import java.text.SimpleDateFormat;
+import android.util.Log;
+
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.Locale;
+
+/**
+
+ * Handles the long-hold voice menu in SavedItemsActivity.
+
+ * Asks: rename / add-or-edit reminder / delete reminder / delete.
+
+ * Owns its own SpeechRecognizer to avoid conflicts with the activity.
+
+ */
 
 public class VoiceEditManager {
 
+    private static final String TAG = "VoiceEditManager";
+
     public interface Callbacks {
-        void onDeleteConfirmed(SavedItem item);
-        void onRenameConfirmed(SavedItem item, String newName);
+
+        void onActionRename(String itemName);
+
+        void onActionAddReminder(String itemName);
+
+        void onActionEditReminder(String itemName);
+
+        void onActionDeleteReminder(String itemName);
+
+        void onActionDelete(String itemName);
+
+        void onCancelled();
+
     }
 
-    private enum State {
-        IDLE,
-        READING_ITEM,
-        ASKING_ACTION,
-        CONFIRMING_DELETE,
-        ASKING_NEW_NAME,
-        CONFIRMING_NEW_NAME
-    }
+    private enum State { IDLE, ASK_ACTION, RENAME_ASK_NAME, RENAME_CONFIRM, DELETE_CONFIRM }
 
     private final Context context;
-    private final TextToSpeech tts;
-    private final Callbacks callbacks;
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final SimpleDateFormat dateFormat =
-            new SimpleDateFormat("dd MMM yyyy 'at' HH:mm", Locale.getDefault());
 
-    private SpeechRecognizer recognizer;
+    private final TextToSpeech tts;
+
+    private final Callbacks callbacks;
+
+    private final SpeechRecognizer recognizer;
+
+    private final Intent recognizerIntent;
+
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     private State state = State.IDLE;
-    private SavedItem currentItem;
+
+    private String currentItemName;
+
+    private boolean hasReminder;
+
     private String pendingNewName;
 
+    private boolean isListening = false;
+
+    private boolean isShutdown = false;
+
     public VoiceEditManager(Context context, TextToSpeech tts, Callbacks callbacks) {
-        this.context = context.getApplicationContext();
+
+        this.context = LocaleManager.wrap(context.getApplicationContext());
+
         this.tts = tts;
+
         this.callbacks = callbacks;
-        setupTtsListener();
+
+        recognizer = SpeechRecognizer.createSpeechRecognizer(context);
+
+        recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,
+
+                LocaleManager.getSttLanguageTag(context));
+
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+
+        recognizer.setRecognitionListener(new RecognitionListener() {
+
+            @Override public void onReadyForSpeech(Bundle params) {}
+
+            @Override public void onBeginningOfSpeech() {}
+
+            @Override public void onBufferReceived(byte[] buffer) {}
+
+            @Override public void onEndOfSpeech() {}
+
+            @Override public void onEvent(int eventType, Bundle params) {}
+
+            @Override public void onPartialResults(Bundle partialResults) {}
+
+            @Override public void onRmsChanged(float rmsdB) {}
+
+            @Override
+
+            public void onResults(Bundle results) {
+
+                isListening = false;
+
+                if (isShutdown) return;
+
+                ArrayList<String> matches =
+
+                        results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+
+                if (matches != null && !matches.isEmpty()) {
+
+                    handleSpeech(matches);
+
+                } else {
+
+                    repromptCurrentState();
+
+                }
+
+            }
+
+            @Override
+
+            public void onError(int error) {
+
+                isListening = false;
+
+                if (isShutdown) return;
+
+                Log.w(TAG, "STT error: " + error);
+
+                switch (error) {
+
+                    case SpeechRecognizer.ERROR_NO_MATCH:
+
+                    case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
+
+                        repromptCurrentState();
+
+                        break;
+
+                    case SpeechRecognizer.ERROR_RECOGNIZER_BUSY:
+
+                    case SpeechRecognizer.ERROR_CLIENT:
+
+                        mainHandler.postDelayed(VoiceEditManager.this::startListening, 600);
+
+                        break;
+
+                    default:
+
+                        mainHandler.postDelayed(VoiceEditManager.this::startListening, 600);
+
+                }
+
+            }
+
+        });
+
     }
 
-    // ---------- PUBLIC ENTRY ----------
+    /**
 
-    public void startEditFlow(SavedItem item) {
-        if (state != State.IDLE) return;
-        this.currentItem = item;
-        this.pendingNewName = null;
-        vibrateAndBeep();
+     * Kick off the menu for a specific item.
 
-        state = State.READING_ITEM;
-        speak(buildItemDescription(item) + ". Do you want to delete or rename this item?");
-    }
+     * @param itemName the item's customName
 
-    public void cancelFlow() {
-        stopListening();
-        state = State.IDLE;
-        currentItem = null;
-        pendingNewName = null;
+     * @param hasReminder whether the item already has a reminder
+
+     */
+
+    public void buildItemDescription(String itemName, boolean hasReminder) {
+
+        this.currentItemName = itemName;
+
+        this.hasReminder = hasReminder;
+
+        state = State.ASK_ACTION;
+
+        String prompt = buildActionPrompt();
+
+        speakAndListen(itemName + ". " + prompt);
+
     }
 
     public void shutdown() {
-        cancelFlow();
-        if (recognizer != null) {
-            try { recognizer.destroy(); } catch (Exception ignored) {}
-            recognizer = null;
+
+        try {
+
+            isShutdown = true;
+
+            isListening = false;
+
+            mainHandler.removeCallbacksAndMessages(null);
+
+            recognizer.stopListening();
+
+            recognizer.destroy();
+
+        } catch (Exception ignored) {}
+
+    }
+
+    // ─────────────────────────────────────────────────────────────
+
+    private void handleSpeech(ArrayList<String> alternatives) {
+
+        Log.d(TAG, "state=" + state + " alternatives=" + alternatives);
+
+        // Check cancel across all alternatives first
+
+        for (String alt : alternatives) {
+
+            String s = alt.toLowerCase().trim();
+
+            if (containsAny(s, "cancel", "back", "annuler", "retour")) {
+
+                speak(context.getString(R.string.vem_cancelled));
+
+                state = State.IDLE;
+
+                if (callbacks != null) callbacks.onCancelled();
+
+                return;
+
+            }
+
         }
+
+        // Try each alternative
+
+        for (String alt : alternatives) {
+
+            if (tryHandle(alt)) return;
+
+        }
+
+        repromptCurrentState();
+
     }
 
-    // ---------- TTS ----------
+    private boolean tryHandle(String raw) {
 
-    private void setupTtsListener() {
-        tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-            @Override public void onStart(String utteranceId) {}
-            @Override public void onError(String utteranceId) {
-                mainHandler.post(VoiceEditManager.this::onTtsFinished);
-            }
-            @Override public void onDone(String utteranceId) {
-                // Only advance the flow if this was a VoiceEditManager utterance
-                if ("vem".equals(utteranceId)) {
-                    mainHandler.post(VoiceEditManager.this::onTtsFinished);
-                }
-            }
-        });
-    }
+        String s = raw.toLowerCase().trim();
 
-    private void speak(String message) {
-        Bundle params = new Bundle();
-        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "vem");
-        tts.speak(message, TextToSpeech.QUEUE_FLUSH, params, "vem");
-    }
-
-    private void onTtsFinished() {
         switch (state) {
-            case READING_ITEM:
-                state = State.ASKING_ACTION;
-                startListening();
-                break;
-            case ASKING_ACTION:
-            case CONFIRMING_DELETE:
-            case ASKING_NEW_NAME:
-            case CONFIRMING_NEW_NAME:
-                startListening();
-                break;
-            case IDLE:
-            default:
-                break;
+
+            case ASK_ACTION: {
+
+                if (containsAny(s, "rename", "change name", "renommer", "changer le nom")) {
+
+                    state = State.RENAME_ASK_NAME;
+
+                    speakAndListen(context.getString(R.string.vem_ask_new_name));
+
+                    return true;
+
+                }
+
+                if (containsAny(s, "add reminder", "ajouter un rappel", "ajouter rappel")) {
+
+                    state = State.IDLE;
+
+                    if (callbacks != null) callbacks.onActionAddReminder(currentItemName);
+
+                    return true;
+
+                }
+
+                if (containsAny(s, "edit reminder", "modify reminder", "modifier rappel",
+
+                        "modifier le rappel", "éditer rappel")) {
+
+                    state = State.IDLE;
+
+                    if (callbacks != null) callbacks.onActionEditReminder(currentItemName);
+
+                    return true;
+
+                }
+
+                if (containsAny(s, "delete reminder", "remove reminder", "supprimer rappel",
+
+                        "supprimer le rappel", "retirer rappel")) {
+
+                    state = State.IDLE;
+
+                    if (callbacks != null) callbacks.onActionDeleteReminder(currentItemName);
+
+                    return true;
+
+                }
+
+                if (containsAny(s, "delete", "remove", "supprimer", "effacer")) {
+
+                    state = State.DELETE_CONFIRM;
+
+                    speakAndListen(context.getString(R.string.vem_confirm_delete, currentItemName));
+
+                    return true;
+
+                }
+
+                return false;
+
+            }
+
+            case RENAME_ASK_NAME: {
+
+                String newName = raw.trim();
+
+                if (newName.isEmpty()) return false;
+
+                pendingNewName = newName;
+
+                state = State.RENAME_CONFIRM;
+
+                speakAndListen(context.getString(R.string.vem_confirm_new_name, newName));
+
+                return true;
+
+            }
+
+            case RENAME_CONFIRM: {
+
+                if (isYes(s)) {
+
+                    state = State.IDLE;
+
+                    if (callbacks != null) callbacks.onActionRename(pendingNewName);
+
+                    return true;
+
+                }
+
+                if (isNo(s)) {
+
+                    state = State.RENAME_ASK_NAME;
+
+                    speakAndListen(context.getString(R.string.vem_ask_new_name));
+
+                    return true;
+
+                }
+
+                return false;
+
+            }
+
+            case DELETE_CONFIRM: {
+
+                if (isYes(s)) {
+
+                    state = State.IDLE;
+
+                    if (callbacks != null) callbacks.onActionDelete(currentItemName);
+
+                    return true;
+
+                }
+
+                if (isNo(s)) {
+
+                    state = State.ASK_ACTION;
+
+                    speakAndListen(buildActionPrompt());
+
+                    return true;
+
+                }
+
+                return false;
+
+            }
+
         }
+
+        return false;
+
     }
 
-    // ---------- SPEECH RECOGNITION ----------
+    // ─────────────────────────────────────────────────────────────
+
+    private String buildActionPrompt() {
+
+        if (hasReminder) {
+
+            return context.getString(R.string.vem_ask_action_with_reminder);
+
+        } else {
+
+            return context.getString(R.string.vem_ask_action_no_reminder);
+
+        }
+
+    }
+
+    private boolean containsAny(String s, String... needles) {
+
+        for (String n : needles) if (s.contains(n)) return true;
+
+        return false;
+
+    }
+
+    private boolean isYes(String s) {
+
+        return s.matches(".*\\b(yes|yeah|yup|yep|sure|okay|ok|correct|right|oui|ouais|d'accord)\\b.*");
+
+    }
+
+    private boolean isNo(String s) {
+
+        return s.matches(".*\\b(no|nope|nah|non|incorrect|wrong)\\b.*");
+
+    }
+
+    // ─────────────────────────────────────────────────────────────
+
+    // TTS / STT plumbing
+
+    // ─────────────────────────────────────────────────────────────
+
+    private void speak(String msg) {
+
+        if (tts == null) return;
+
+        tts.stop();
+
+        tts.speak(msg, TextToSpeech.QUEUE_FLUSH, null, "vem_speak");
+
+    }
+
+    private void speakAndThen(String msg, Runnable action) {
+
+        if (tts == null) return;
+
+        tts.stop();
+
+        String utterId = "vem_then_" + System.currentTimeMillis();
+
+        tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+
+            @Override public void onStart(String id) {}
+
+            @Override public void onDone(String id) {
+
+                if (utterId.equals(id) && !isShutdown) mainHandler.post(action);
+
+            }
+
+            @Override public void onError(String id) {}
+
+        });
+
+        tts.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
+
+    }
+
+    private void speakAndListen(String msg) {
+
+        speakAndThen(msg, () -> mainHandler.postDelayed(this::startListening, 300));
+
+    }
 
     private void startListening() {
-        stopListening();
 
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            speakFinal("Speech recognition is not available on this device.");
-            resetToIdle();
-            return;
-        }
-
-        recognizer = SpeechRecognizer.createSpeechRecognizer(context);
-        recognizer.setRecognitionListener(new RecognitionListener() {
-            @Override public void onReadyForSpeech(Bundle params) {}
-            @Override public void onBeginningOfSpeech() {}
-            @Override public void onRmsChanged(float rmsdB) {}
-            @Override public void onBufferReceived(byte[] buffer) {}
-            @Override public void onEndOfSpeech() {}
-            @Override public void onEvent(int eventType, Bundle params) {}
-            @Override public void onPartialResults(Bundle partialResults) {}
-
-            @Override
-            public void onError(int error) {
-                // Silence / no match / busy -> just keep listening (no timeout).
-                mainHandler.postDelayed(VoiceEditManager.this::restartListeningIfStillInFlow, 300);
-            }
-
-            @Override
-            public void onResults(Bundle results) {
-                ArrayList<String> matches =
-                        results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                String spoken = (matches != null && !matches.isEmpty())
-                        ? matches.get(0).trim() : "";
-                handleSpeechResult(spoken);
-            }
-        });
-
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.getPackageName());
-        intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1000L);
+        if (isShutdown || isListening) return;
 
         try {
-            recognizer.startListening(intent);
+
+            isListening = true;
+
+            recognizer.startListening(recognizerIntent);
+
         } catch (Exception e) {
-            mainHandler.postDelayed(this::restartListeningIfStillInFlow, 500);
+
+            isListening = false;
+
+            Log.e(TAG, "startListening failed: " + e.getMessage());
+
+            mainHandler.postDelayed(this::startListening, 600);
+
         }
+
     }
 
-    private void restartListeningIfStillInFlow() {
-        if (state == State.IDLE) return;
-        startListening();
-    }
+    private void repromptCurrentState() {
 
-    private void stopListening() {
-        if (recognizer != null) {
-            try {
-                recognizer.cancel();
-                recognizer.destroy();
-            } catch (Exception ignored) {}
-            recognizer = null;
-        }
-    }
-
-    // ---------- STATE MACHINE ----------
-
-    private void handleSpeechResult(String rawSpoken) {
-        String spoken = rawSpoken.toLowerCase(Locale.getDefault()).trim();
+        String msg;
 
         switch (state) {
-            case ASKING_ACTION:
-                if (containsAny(spoken, "delete", "remove", "erase")) {
-                    state = State.CONFIRMING_DELETE;
-                    speak("Are you sure you want to delete " + safeName(currentItem) + "?");
-                } else if (containsAny(spoken, "rename", "change name", "new name")) {
-                    state = State.ASKING_NEW_NAME;
-                    speak("What is the new name?");
-                } else {
-                    speak("Please say delete or rename.");
-                }
+
+            case ASK_ACTION:
+
+                msg = buildActionPrompt();
+
                 break;
 
-            case CONFIRMING_DELETE:
-                if (containsYes(spoken)) {
-                    SavedItem toDelete = currentItem;
-                    resetToIdle();
-                    speakFinal("Deleted.");
-                    if (callbacks != null) callbacks.onDeleteConfirmed(toDelete);
-                } else if (containsNo(spoken)) {
-                    resetToIdle();
-                    speakFinal("Cancelled.");
-                } else {
-                    speak("Please say yes or no.");
-                }
+            case RENAME_ASK_NAME:
+
+                msg = context.getString(R.string.vem_ask_new_name);
+
                 break;
 
-            case ASKING_NEW_NAME:
-                if (spoken.isEmpty()) {
-                    speak("I didn't catch that. What is the new name?");
-                } else {
-                    // Preserve original casing for display, not lowercased version
-                    pendingNewName = rawSpoken.trim();
-                    state = State.CONFIRMING_NEW_NAME;
-                    speak("I heard " + pendingNewName + ". Is this correct?");
-                }
+            case RENAME_CONFIRM:
+
+                msg = context.getString(R.string.vem_confirm_new_name, pendingNewName);
+
                 break;
 
-            case CONFIRMING_NEW_NAME:
-                if (containsYes(spoken)) {
-                    SavedItem toRename = currentItem;
-                    String finalName = pendingNewName;
-                    resetToIdle();
-                    speakFinal("Renamed to " + finalName + ".");
-                    if (callbacks != null) callbacks.onRenameConfirmed(toRename, finalName);
-                } else if (containsNo(spoken)) {
-                    // Per spec: cancel the whole rename
-                    resetToIdle();
-                    speakFinal("Cancelled.");
-                } else {
-                    speak("Please say yes or no.");
-                }
+            case DELETE_CONFIRM:
+
+                msg = context.getString(R.string.vem_confirm_delete, currentItemName);
+
                 break;
 
-            case IDLE:
             default:
-                break;
+
+                msg = context.getString(R.string.didnt_catch);
+
         }
+
+        speakAndListen(msg);
+
     }
 
-    private void resetToIdle() {
-        stopListening();
-        state = State.IDLE;
-        currentItem = null;
-        pendingNewName = null;
-    }
-
-    /** Speak a final announcement that should NOT restart listening. */
-    private void speakFinal(String message) {
-        // state is already IDLE here, so onTtsFinished will do nothing
-        Bundle params = new Bundle();
-        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "vem-final");
-        tts.speak(message, TextToSpeech.QUEUE_FLUSH, params, "vem-final");
-    }
-
-    // ---------- HELPERS ----------
-
-    private String buildItemDescription(SavedItem item) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Item: ").append(safeName(item)).append(". ");
-        sb.append("Saved on ").append(dateFormat.format(new Date(item.scanDate))).append(". ");
-        if ("text".equalsIgnoreCase(item.category)) {
-            sb.append("This is a text note. ");
-            if (item.detectedName != null && !item.detectedName.isEmpty()) {
-                sb.append("The text reads: ").append(item.detectedName).append(". ");
-            }
-        } else {
-            sb.append("This is an object. ");
-            if (item.detectedName != null && !item.detectedName.isEmpty()) {
-                sb.append("Detected as ").append(item.detectedName).append(". ");
-            }
-        }
-        return sb.toString();
-    }
-
-    private String safeName(SavedItem item) {
-        return (item != null && item.customName != null && !item.customName.isEmpty())
-                ? item.customName : "this item";
-    }
-
-    private boolean containsAny(String spoken, String... keywords) {
-        if (spoken == null) return false;
-        for (String k : keywords) if (spoken.contains(k)) return true;
-        return false;
-    }
-
-    private boolean containsYes(String spoken) {
-        return containsAny(spoken, "yes", "yeah", "yep", "sure", "confirm", "correct", "ok", "okay");
-    }
-
-    private boolean containsNo(String spoken) {
-        return containsAny(spoken, "no", "nope", "cancel", "wrong", "incorrect");
-    }
-
-    private void vibrateAndBeep() {
-        Vibrator vib = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-        if (vib != null && vib.hasVibrator()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vib.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE));
-            } else {
-                vib.vibrate(200);
-            }
-        }
-        try {
-            ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80);
-            tone.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
-        } catch (Exception ignored) {}
-    }
 }
