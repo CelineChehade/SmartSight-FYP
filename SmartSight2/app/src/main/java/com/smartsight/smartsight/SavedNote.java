@@ -9,9 +9,10 @@ public class SavedNote {
     @PrimaryKey(autoGenerate = true)
     public int noteId;
 
-    public String customName;
-    public String extractedText;   // OCR text OR object label
-    public String scanType;        // "text" or "object"
+    public String extractedText;
     public long scanDate;
     public String language;
+
+    // REMOVED: customName (never populated)
+    // REMOVED: scanType (never populated)
 }
