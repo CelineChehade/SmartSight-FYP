@@ -11,8 +11,8 @@ public class ItemMatcher {
 
     private static final String TAG = "ItemMatcher";
 
-    // 70% of hash bits must match
-    private static final float IMAGE_SIMILARITY_THRESHOLD = 0.70f;
+    // LOWERED threshold - 60% match is enough for angle variations
+    private static final float IMAGE_SIMILARITY_THRESHOLD = 0.55f;
 
     private final Context context;
     private final ImageFingerprintExtractor extractor;
@@ -26,19 +26,23 @@ public class ItemMatcher {
      * Check if scanned text matches any saved item.
      */
     public SavedItem matchText(String scannedText) {
-        Log.d(TAG, "matchText called with: " + scannedText);
+        Log.d(TAG, "========================================");
+        Log.d(TAG, "TEXT MATCH ATTEMPT");
+        Log.d(TAG, "Scanned text: \"" + scannedText + "\"");
 
         if (scannedText == null || scannedText.trim().isEmpty()) {
-            Log.d(TAG, "matchText: empty input");
+            Log.d(TAG, "Empty input, returning null");
+            Log.d(TAG, "========================================");
             return null;
         }
 
         String normalizedScan = normalize(scannedText);
+        Log.d(TAG, "Normalized: \"" + normalizedScan + "\"");
 
         List<SavedItem> allItems = AppDatabase.getInstance(context)
                 .itemDao().getAllItemsSync();
 
-        Log.d(TAG, "matchText: found " + allItems.size() + " saved items total");
+        Log.d(TAG, "Checking against " + allItems.size() + " saved items");
 
         for (SavedItem item : allItems) {
             if (!"text".equalsIgnoreCase(item.category)) continue;
@@ -46,92 +50,104 @@ public class ItemMatcher {
 
             String normalizedSaved = normalize(item.detectedName);
 
-            Log.d(TAG, "Compare TEXT: scan='" + normalizedScan +
-                    "' vs saved='" + normalizedSaved + "'");
-
             if (normalizedScan.equals(normalizedSaved)
                     || normalizedScan.contains(normalizedSaved)
                     || normalizedSaved.contains(normalizedScan)) {
-                Log.d(TAG, "TEXT MATCH: " + item.customName);
+                Log.d(TAG, "✅ TEXT MATCH FOUND: " + item.customName);
+                Log.d(TAG, "========================================");
                 return item;
             }
         }
 
-        Log.d(TAG, "matchText: no match found");
+        Log.d(TAG, "❌ No text match found");
+        Log.d(TAG, "========================================");
         return null;
     }
 
     /**
-     * Check if scanned object (cropped from bounding box) matches any saved object.
+     * Check if scanned object matches any saved object.
+     * Now with lower threshold to handle angle variations.
      */
     public SavedItem matchObject(Bitmap croppedObject, String detectedLabel) {
-        Log.d(TAG, "matchObject called with label: " + detectedLabel);
+        Log.d(TAG, "========================================");
+        Log.d(TAG, "OBJECT MATCH ATTEMPT");
+        Log.d(TAG, "Detected label: \"" + detectedLabel + "\"");
 
         if (croppedObject == null || detectedLabel == null) {
-            Log.d(TAG, "matchObject: null input, returning null");
+            Log.d(TAG, "Null input, returning null");
+            Log.d(TAG, "========================================");
             return null;
         }
         if (extractor == null) {
-            Log.d(TAG, "matchObject: extractor is null");
+            Log.e(TAG, "Extractor is null!");
+            Log.d(TAG, "========================================");
             return null;
         }
 
         String scanFingerprint = extractor.extractFingerprint(croppedObject);
         if (scanFingerprint == null) {
-            Log.d(TAG, "matchObject: fingerprint is null");
+            Log.e(TAG, "Failed to extract fingerprint");
+            Log.d(TAG, "========================================");
             return null;
         }
 
-        Log.d(TAG, "Scan fingerprint len=" + scanFingerprint.length());
+        Log.d(TAG, "Scan fingerprint: " + scanFingerprint.substring(0, Math.min(24, scanFingerprint.length())) + "...");
 
         List<SavedItem> allItems = AppDatabase.getInstance(context)
                 .itemDao().getAllItemsSync();
 
-        Log.d(TAG, "matchObject: found " + allItems.size() + " saved items total");
+        Log.d(TAG, "Checking against " + allItems.size() + " saved items");
 
         SavedItem bestMatch = null;
-        float bestScore = IMAGE_SIMILARITY_THRESHOLD - 0.01f;  // Initialize just below threshold
+        float bestScore = 0f;
+        String bestMatchReason = "";
 
         for (SavedItem item : allItems) {
-            Log.d(TAG, "Inspecting item: " + item.customName
-                    + " | category=" + item.category
-                    + " | detectedName=" + item.detectedName
-                    + " | has fingerprint=" + (item.imageFingerprint != null));
-
             if (!"object".equalsIgnoreCase(item.category)) {
-                Log.d(TAG, "  skip: not an object");
                 continue;
             }
             if (item.imageFingerprint == null) {
-                Log.d(TAG, "  skip: no fingerprint stored");
+                Log.d(TAG, "  Item \"" + item.customName + "\": ❌ no fingerprint stored");
                 continue;
             }
 
+            // Label must match
             if (item.detectedName != null
                     && !item.detectedName.equalsIgnoreCase(detectedLabel)) {
-                Log.d(TAG, "  skip: label mismatch (saved=" +
-                        item.detectedName + " vs scan=" + detectedLabel + ")");
+                Log.d(TAG, "  Item \"" + item.customName + "\": ❌ label mismatch (saved=\"" +
+                        item.detectedName + "\" vs scan=\"" + detectedLabel + "\")");
                 continue;
             }
 
             float score = ImageFingerprintExtractor.compareSimilarity(
                     scanFingerprint, item.imageFingerprint);
 
-            Log.d(TAG, "  SCORE for " + item.customName + " = " + score);
+            String status = score >= IMAGE_SIMILARITY_THRESHOLD ? "✅ MATCH" : "❌ below threshold";
+            Log.d(TAG, "  Item \"" + item.customName + "\": " +
+                    String.format("%.1f%%", score * 100) + " " + status);
 
-            if (score >= bestScore) {  // Use >= to catch exact threshold matches
+            if (score > bestScore) {
                 bestScore = score;
                 bestMatch = item;
+                bestMatchReason = String.format("%.1f%% similarity", score * 100);
             }
         }
 
-        if (bestMatch != null) {
-            Log.d(TAG, "OBJECT MATCH: " + bestMatch.customName
-                    + " (score=" + bestScore + ")");
+        if (bestMatch != null && bestScore >= IMAGE_SIMILARITY_THRESHOLD) {
+            Log.d(TAG, "✅ BEST MATCH: \"" + bestMatch.customName + "\" (" + bestMatchReason + ")");
+            Log.d(TAG, "========================================");
+            return bestMatch;
         } else {
-            Log.d(TAG, "matchObject: no match above threshold " + IMAGE_SIMILARITY_THRESHOLD);
+            if (bestMatch != null) {
+                Log.d(TAG, "❌ Best candidate \"" + bestMatch.customName + "\" only scored " +
+                        String.format("%.1f%%", bestScore * 100) + " (threshold=" +
+                        String.format("%.1f%%", IMAGE_SIMILARITY_THRESHOLD * 100) + ")");
+            } else {
+                Log.d(TAG, "❌ No candidates found");
+            }
+            Log.d(TAG, "========================================");
+            return null;
         }
-        return bestMatch;
     }
 
     /**
@@ -153,7 +169,7 @@ public class ItemMatcher {
     }
 
     /**
-     * Normalize text for comparison: lowercase, collapse whitespace, remove punctuation.
+     * Normalize text for comparison.
      */
     private String normalize(String s) {
         return s.toLowerCase()
