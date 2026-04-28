@@ -169,6 +169,20 @@ public class SettingsActivity extends AppCompatActivity
         });
     }
 
+    /**
+     * ADDED: Method to update STT language dynamically
+     */
+    private void updateSttLanguage() {
+        if (recognizerIntent != null) {
+            String sttLang = LocaleManager.getSttLanguageTag(this);
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, sttLang);
+            Log.d(TAG, "STT language updated to: " + sttLang);
+        }
+    }
+
+    /**
+     * MODIFIED: Call updateSttLanguage() before each listen
+     */
     private void startListening() {
         if (isListening) {
             Log.w(TAG, "Already listening, skipping");
@@ -177,6 +191,9 @@ public class SettingsActivity extends AppCompatActivity
 
         if (speechRecognizer != null && recognizerIntent != null) {
             try {
+                // Update STT language before each listen
+                updateSttLanguage();
+
                 isListening = true;
                 speechRecognizer.startListening(recognizerIntent);
                 Log.d(TAG, "🎤 Started listening");
@@ -249,7 +266,12 @@ public class SettingsActivity extends AppCompatActivity
                 }
 
                 if (langCode != null) {
+                    // Save language first
                     SettingsPrefs.setLanguage(this, langCode);
+                    // THEN update TTS and STT
+                    TtsHelper.applySettings(this, tts);
+                    updateSttLanguage();
+
                     final String finalLangName = langName;
                     TtsHelper.speakThen(tts,
                             getString(R.string.settings_language_set, finalLangName),
@@ -286,11 +308,11 @@ public class SettingsActivity extends AppCompatActivity
                 if (containsAny(spoken, "enable", "on", "turn on",
                         "activer", "active")) {
                     SettingsPrefs.setHighContrast(this, true);
-                    TtsHelper.speakThen(tts, getString(R.string.contrast_now_enabled), this::recreate);
+                    TtsHelper.speakThen(tts, getString(R.string.contrast_now_enabled), this::restartActivity);
                 } else if (containsAny(spoken, "disable", "off", "turn off",
                         "désactiver", "désactive")) {
                     SettingsPrefs.setHighContrast(this, false);
-                    TtsHelper.speakThen(tts, getString(R.string.contrast_now_disabled), this::recreate);
+                    TtsHelper.speakThen(tts, getString(R.string.contrast_now_disabled), this::restartActivity);
                 } else {
                     TtsHelper.speakThen(tts, getString(R.string.contrast_please_say),
                             this::startListening);
@@ -365,6 +387,16 @@ public class SettingsActivity extends AppCompatActivity
         setStatus(getString(R.string.settings_status_default));
         // Just speak the message - DON'T start listening automatically
         TtsHelper.speak(tts, getString(R.string.settings_return_to_menu, message));
+    }
+
+    /**
+     * NEW METHOD: Properly restart activity to apply high contrast theme
+     */
+    private void restartActivity() {
+        Intent intent = new Intent(this, SettingsActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 
     private void restartAppToMain() {
