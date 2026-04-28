@@ -39,9 +39,8 @@
     <string name="i_see_a">Je vois un %1$s</string>
     <string name="this_is_your">C\'est votre %1$s</string>
 
-    <!-- SmartScan startup instructions (French) -->
-    <string name="instruction_talkback_scan">Appuyez sur le bouton de scan pour démarrer le scan.</string>
-    <string name="instruction_non_talkback_scan">Maintenez le centre de l\'écran pour démarrer le scan.</string>
+    <string name="instruction_non_talkback_scan">Analyse intelligente prête. Maintenez n\'importe où sur l\'écran pendant deux secondes pour capturer une image.</string>
+    <string name="instruction_talkback_scan">Analyse intelligente prête. Appuyez sur le bouton d\'analyse pour capturer une image.</string>
 
     <!-- Save flow -->
     <string name="ask_save">Voulez-vous sauvegarder ceci ? Dites oui ou non.</string>
@@ -55,7 +54,7 @@
     <string name="saved_scans_title">Éléments Sauvegardés</string>
     <string name="no_saved_items">Vous n\'avez aucun élément sauvegardé.</string>
     <string name="saved_items_count_one">Vous avez 1 élément sauvegardé. Appuyez sur un élément pour entendre les détails, ou maintenez pour renommer ou supprimer.</string>
-    <string name="saved_items_count_many">Vous avez %1$d éléments sauvegardés. Appuyez sur un élément pour entendre les détails, ou maintenez pour renommer ou supprimer.</string>
+    <string name="saved_items_count_many">Vous avez %1$d éléments sauvegardés. Appuyez sur un élément pour entendre les détails, ou maintenez pour renommer, supprimer, ou ajoutez rappel.</string>
     <string name="hold_to_edit">Maintenez pour renommer ou supprimer.</string>
     <string name="this_is_text_note">C\'est une note textuelle.</string>
     <string name="this_is_object">C\'est un objet.</string>
@@ -160,4 +159,23 @@
     <!-- VoiceEditManager -->
     <string name="vem_ask_action_no_reminder">Que voulez-vous faire ? Dites renommer, ajouter un rappel, ou supprimer.</string>
     <string name="vem_ask_action_with_reminder">Que voulez-vous faire ? Dites renommer, modifier le rappel, supprimer le rappel, ou supprimer.</string>
+
+    <!-- Reminder date prompts -->
+    <string name="reminder_ask_year">Quelle année ? Dites l\'année, ou cette année, ou l\'année prochaine.</string>
+    <string name="reminder_ask_month">Quel mois ? Dites le numéro du mois de 1 à 12, ou le nom du mois.</string>
+    <string name="reminder_ask_day">Quel jour ? Dites le numéro du jour de 1 à 31, ou aujourd\'hui, ou demain.</string>
+    <string name="reminder_please_say_year">Je n\'ai pas compris. Veuillez dire l\'année.</string>
+    <string name="reminder_please_say_month">Je n\'ai pas compris. Veuillez dire le mois.</string>
+    <string name="reminder_please_say_day">Je n\'ai pas compris. Veuillez dire le jour.</string>
+
+    <string name="found_both_text_and_object">J\'ai trouvé du texte qui dit : %1$s. J\'ai également détecté un objet : %2$s. Que voulez-vous enregistrer ? Dites texte ou objet.</string>
+    <string name="ask_text_or_object">Dites texte ou objet.</string>
+    <string name="please_say_text_or_object">Je n\'ai pas compris. Veuillez dire texte ou objet.</string>
+
+    <!-- Reminder notification -->
+    <string name="reminder_notification_message">Rappel : %1$s</string>
+
+    <!-- Multiple objects -->
+    <string name="ask_which_object">Quel objet souhaitez-vous enregistrer ?</string>
+    <string name="please_say_which_object">Je n\'ai pas compris. Veuillez dire quel objet vous voulez.</string>
 </resources>
