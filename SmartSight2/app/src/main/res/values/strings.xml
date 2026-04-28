@@ -40,8 +40,8 @@
     <string name="this_is_your">This is your %1$s</string>
 
     <!-- SmartScan startup instructions -->
-    <string name="instruction_talkback_scan">Press the scan button to start scanning.</string>
-    <string name="instruction_non_talkback_scan">Hold the center of the screen to start scanning.</string>
+    <string name="instruction_non_talkback_scan">Smart Scan ready. Hold anywhere on the screen for two seconds to capture an image.</string>
+    <string name="instruction_talkback_scan">Smart Scan ready. Tap the scan button to capture an image.</string>
 
     <!-- Save flow -->
     <string name="ask_save">Do you want to save this? Say yes or no.</string>
@@ -55,7 +55,7 @@
     <string name="saved_scans_title">Saved Scans</string>
     <string name="no_saved_items">You have no saved items yet.</string>
     <string name="saved_items_count_one">You have 1 saved item. Tap an item to hear details, or hold to rename or delete.</string>
-    <string name="saved_items_count_many">You have %1$d saved items. Tap an item to hear details, or hold to rename or delete.</string>
+    <string name="saved_items_count_many">You have %1$d saved items. Tap an item to hear details, or hold to rename, delete, or edit reminder.</string>
     <string name="hold_to_edit">Hold to rename or delete.</string>
     <string name="this_is_text_note">This is a text note.</string>
     <string name="this_is_object">This is an object.</string>
@@ -160,5 +160,25 @@
     <!-- VoiceEditManager -->
     <string name="vem_ask_action_no_reminder">What do you want to do? Say rename, add reminder, or delete.</string>
     <string name="vem_ask_action_with_reminder">What do you want to do? Say rename, edit reminder, delete reminder, or delete.</string>
+
+    <!-- Reminder date prompts -->
+    <string name="reminder_ask_year">What year? Say the year, or say this year, or next year.</string>
+    <string name="reminder_ask_month">What month? Say the month number from 1 to 12, or say the month name.</string>
+    <string name="reminder_ask_day">What day? Say the day number from 1 to 31, or say today, or tomorrow.</string>
+
+    <string name="reminder_please_say_year">I didn\'t catch that. Please say the year.</string>
+    <string name="reminder_please_say_month">I didn\'t catch that. Please say the month.</string>
+    <string name="reminder_please_say_day">I didn\'t catch that. Please say the day.</string>
+
+    <string name="found_both_text_and_object">I found text that says: %1$s. I also detected an object: %2$s. What would you like to save? Say text or object.</string>
+    <string name="ask_text_or_object">Say text or object.</string>
+    <string name="please_say_text_or_object">I didn\'t catch that. Please say text or object.</string>
+
+    <!-- Reminder notification -->
+    <string name="reminder_notification_message">Reminder: %1$s</string>
+
+    <!-- Multiple objects -->
+    <string name="ask_which_object">Which object would you like to save?</string>
+    <string name="please_say_which_object">I didn\'t catch that. Please say which object you want.</string>
 
 </resources>
