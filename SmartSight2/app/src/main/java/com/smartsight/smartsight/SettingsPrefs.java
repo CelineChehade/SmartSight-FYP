@@ -5,53 +5,104 @@ import android.content.SharedPreferences;
 
 public class SettingsPrefs {
 
-    private static final String PREFS_NAME = "smartsight_settings";
-
-    private static final String KEY_VOICE_SPEED = "voice_speed";
-    private static final String KEY_HIGH_CONTRAST = "high_contrast";
+    private static final String PREFS_NAME = "SmartSightSettings";
     private static final String KEY_LANGUAGE = "language";
+    private static final String KEY_SPEECH_SPEED = "speech_speed";
+    private static final String KEY_HIGH_CONTRAST = "high_contrast";
 
-    // Defaults
-    public static final float DEFAULT_SPEED = 1.0f;
-    public static final boolean DEFAULT_CONTRAST = false;
-    public static final String DEFAULT_LANGUAGE = "en";
-
-    // Bounds
+    // Speech speed constants
     public static final float MIN_SPEED = 0.5f;
     public static final float MAX_SPEED = 2.0f;
-    public static final float SPEED_STEP = 0.2f;
+    public static final float SPEED_STEP = 0.25f;
 
-    private static SharedPreferences prefs(Context c) {
-        return c.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-    }
-
-    // ────────── VOICE SPEED ──────────
-    public static float getVoiceSpeed(Context c) {
-        return prefs(c).getFloat(KEY_VOICE_SPEED, DEFAULT_SPEED);
-    }
-    public static void setVoiceSpeed(Context c, float speed) {
-        float clamped = Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed));
-        prefs(c).edit().putFloat(KEY_VOICE_SPEED, clamped).apply();
+    public static String getLanguage(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(KEY_LANGUAGE, "en");
     }
 
-    // ────────── HIGH CONTRAST ──────────
-    public static boolean isHighContrast(Context c) {
-        return prefs(c).getBoolean(KEY_HIGH_CONTRAST, DEFAULT_CONTRAST);
-    }
-    public static void setHighContrast(Context c, boolean on) {
-        prefs(c).edit().putBoolean(KEY_HIGH_CONTRAST, on).apply();
+    public static void setLanguage(Context context, String language) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(KEY_LANGUAGE, language).apply();
     }
 
-    // ────────── LANGUAGE ──────────
-    public static String getLanguage(Context c) {
-        return prefs(c).getString(KEY_LANGUAGE, DEFAULT_LANGUAGE);
-    }
-    public static void setLanguage(Context c, String lang) {
-        prefs(c).edit().putString(KEY_LANGUAGE, lang).apply();
+    public static float getSpeechSpeed(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getFloat(KEY_SPEECH_SPEED, 1.0f);
     }
 
-    // ────────── RESET ──────────
-    public static void clearAll(Context c) {
-        prefs(c).edit().clear().apply();
+    public static void setSpeechSpeed(Context context, float speed) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putFloat(KEY_SPEECH_SPEED, speed).apply();
+    }
+
+    public static float getVoiceSpeed(Context context) {
+        return getSpeechSpeed(context);
+    }
+
+    public static void setVoiceSpeed(Context context, float speed) {
+        setSpeechSpeed(context, speed);
+    }
+
+    public static boolean isHighContrast(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getBoolean(KEY_HIGH_CONTRAST, false);
+    }
+
+    public static void setHighContrast(Context context, boolean enabled) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putBoolean(KEY_HIGH_CONTRAST, enabled).apply();
+    }
+
+    public static void clearAll(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().clear().apply();
+    }
+
+    public static void resetAll(Context context) {
+        clearAll(context);
+    }
+
+    /**
+     * Speak multiple prompts in sequence with delays.
+     * This is a legacy method - new code should use TtsHelper.speakThen() instead.
+     */
+    public static void speakWithDelay(android.speech.tts.TextToSpeech tts, String[] prompts, int delayMs, Runnable afterAction) {
+        if (tts == null || prompts == null || prompts.length == 0) {
+            if (afterAction != null) afterAction.run();
+            return;
+        }
+
+        speakSequence(tts, prompts, 0, delayMs, afterAction);
+    }
+
+    private static void speakSequence(android.speech.tts.TextToSpeech tts, String[] prompts, int index, int delayMs, Runnable afterAction) {
+        if (index >= prompts.length) {
+            if (afterAction != null) afterAction.run();
+            return;
+        }
+
+        String utterId = "seq_" + System.currentTimeMillis() + "_" + index;
+
+        tts.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
+            @Override public void onStart(String utteranceId) {}
+
+            @Override
+            public void onDone(String utteranceId) {
+                if (utterId.equals(utteranceId)) {
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        speakSequence(tts, prompts, index + 1, delayMs, afterAction);
+                    }, delayMs);
+                }
+            }
+
+            @Override public void onError(String utteranceId) {
+                if (utterId.equals(utteranceId)) {
+                    speakSequence(tts, prompts, index + 1, delayMs, afterAction);
+                }
+            }
+        });
+
+        java.util.HashMap<String, String> params = new java.util.HashMap<>();
+        tts.speak(prompts[index], android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, utterId);
     }
 }
