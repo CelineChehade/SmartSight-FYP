@@ -5,7 +5,9 @@
     android:id="@+id/smartScanRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/backgroundColor">
+    android:background="@color/backgroundColor"
+    android:focusable="false"
+    android:importantForAccessibility="no">
 
     <!-- Title -->
     <TextView
@@ -17,6 +19,7 @@
         android:textAppearance="?attr/textAppearanceHeadline4"
         android:textColor="@color/primaryTextColor"
         android:layout_marginTop="16dp"
+        android:importantForAccessibility="no"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
@@ -26,6 +29,7 @@
         android:id="@+id/frameContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:importantForAccessibility="no"
         app:layout_constraintDimensionRatio="1:1"
         app:layout_constraintWidth_percent="0.9"
         app:layout_constraintTop_toTopOf="parent"
@@ -36,12 +40,14 @@
         <androidx.camera.view.PreviewView
             android:id="@+id/cameraPreview"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            android:importantForAccessibility="no" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@drawable/scan_frame_border" />
+            android:background="@drawable/scan_frame_border"
+            android:importantForAccessibility="no" />
     </FrameLayout>
 
     <!-- Scan Button (TalkBack mode) -->
@@ -53,6 +59,9 @@
         android:contentDescription="@string/scan_button_description"
         android:visibility="gone"
         android:layout_margin="24dp"
+        android:focusable="true"
+        android:clickable="true"
+        android:importantForAccessibility="yes"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
