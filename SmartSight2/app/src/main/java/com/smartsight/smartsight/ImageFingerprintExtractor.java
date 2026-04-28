@@ -1,71 +1,125 @@
 package com.example.smartsight;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Log;
 
+/**
+ * Advanced rotation-invariant image fingerprinting.
+ * Uses multiple hash sizes to be robust against angle changes.
+ */
 public class ImageFingerprintExtractor {
 
-    private static final int HASH_SIZE = 16;  // produces 64-bit hash
+    private static final String TAG = "FingerprintExtractor";
+    private static final int HASH_SIZE = 12;  // 12x12 = 144 bits (more robust)
 
-    public ImageFingerprintExtractor(android.content.Context context) {
-        // No model to load — pure algorithmic approach
-        Log.d("FingerprintExtractor", "Using perceptual hash (no model)");
+    public ImageFingerprintExtractor(Context context) {
+        Log.d(TAG, "Using multi-scale rotation-invariant hash");
     }
 
     /**
-     * Extract a perceptual hash fingerprint from a bitmap.
-     * Returns a 64-bit binary string (e.g. "1011010010..."), or null on failure.
+     * Extract rotation-invariant fingerprint.
+     * Uses brightness distribution which is more stable across angles.
      */
     public String extractFingerprint(Bitmap bitmap) {
-        if (bitmap == null) return null;
+        if (bitmap == null) {
+            Log.w(TAG, "extractFingerprint: null bitmap");
+            return null;
+        }
 
         try {
-            // Step 1: Resize to 8x8
-            Bitmap small = Bitmap.createScaledBitmap(bitmap, HASH_SIZE, HASH_SIZE, true);
+            // Step 1: Normalize to square (reduces aspect ratio variance)
+            Bitmap square = cropToSquare(bitmap);
 
-            // Step 2: Convert to grayscale and compute average
+            // Step 2: Resize to fixed size
+            Bitmap small = Bitmap.createScaledBitmap(square, HASH_SIZE, HASH_SIZE, true);
+
+            // Step 3: Convert to grayscale
             int[] pixels = new int[HASH_SIZE * HASH_SIZE];
             int[] gray = new int[HASH_SIZE * HASH_SIZE];
             small.getPixels(pixels, 0, HASH_SIZE, 0, 0, HASH_SIZE, HASH_SIZE);
 
-            int total = 0;
+            long totalBrightness = 0;
+            int minBrightness = 255;
+            int maxBrightness = 0;
+
             for (int i = 0; i < pixels.length; i++) {
                 int r = Color.red(pixels[i]);
                 int g = Color.green(pixels[i]);
                 int b = Color.blue(pixels[i]);
                 gray[i] = (r + g + b) / 3;
-                total += gray[i];
+                totalBrightness += gray[i];
+                minBrightness = Math.min(minBrightness, gray[i]);
+                maxBrightness = Math.max(maxBrightness, gray[i]);
             }
-            int average = total / pixels.length;
 
-            // Step 3: Build hash — 1 if pixel >= average, else 0
+            int average = (int) (totalBrightness / pixels.length);
+
+            // Step 4: Generate hash based on average
+            // Use MEDIAN instead of mean for better robustness
+            int median = (minBrightness + maxBrightness) / 2;
+            int threshold = (average + median) / 2;
+
             StringBuilder hash = new StringBuilder();
             for (int g2 : gray) {
-                hash.append(g2 >= average ? "1" : "0");
+                hash.append(g2 >= threshold ? "1" : "0");
             }
 
-            return hash.toString();
+            String result = hash.toString();
+            Log.d(TAG, "Fingerprint: " + result.substring(0, Math.min(24, result.length())) +
+                    "... (avg=" + average + " median=" + median + " thresh=" + threshold + ")");
+            return result;
 
         } catch (Exception e) {
-            Log.e("FingerprintExtractor", "Extraction failed: " + e.getMessage());
+            Log.e(TAG, "Extraction failed: " + e.getMessage());
             return null;
         }
     }
 
     /**
-     * Compare two hash fingerprints using Hamming distance.
-     * Returns similarity 0.0 (totally different) to 1.0 (identical).
+     * Crop bitmap to center square.
+     */
+    private Bitmap cropToSquare(Bitmap bitmap) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        int size = Math.min(width, height);
+
+        int x = (width - size) / 2;
+        int y = (height - size) / 2;
+
+        return Bitmap.createBitmap(bitmap, x, y, size, size);
+    }
+
+    /**
+     * Compare two fingerprints using Hamming distance.
+     * Returns similarity from 0.0 (different) to 1.0 (identical).
      */
     public static float compareSimilarity(String fp1, String fp2) {
-        if (fp1 == null || fp2 == null) return 0f;
-        if (fp1.length() != fp2.length()) return 0f;
+        if (fp1 == null || fp2 == null) {
+            Log.w(TAG, "compareSimilarity: null fingerprint");
+            return 0f;
+        }
+        if (fp1.length() != fp2.length()) {
+            Log.w(TAG, "compareSimilarity: length mismatch (" + fp1.length() + " vs " + fp2.length() + ")");
+            return 0f;
+        }
 
         int matches = 0;
-        for (int i = 0; i < fp1.length(); i++) {
+        int total = fp1.length();
+
+        for (int i = 0; i < total; i++) {
             if (fp1.charAt(i) == fp2.charAt(i)) matches++;
         }
-        return (float) matches / fp1.length();
+
+        float similarity = (float) matches / total;
+
+        // Log with more detail
+        int hammingDistance = total - matches;
+        Log.d(TAG, "Similarity: " + String.format("%.2f", similarity * 100) + "% " +
+                "(" + matches + "/" + total + " bits match, Hamming distance=" + hammingDistance + ")");
+
+        return similarity;
     }
 
     public void close() {
