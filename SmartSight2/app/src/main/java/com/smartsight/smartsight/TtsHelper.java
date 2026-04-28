@@ -42,14 +42,19 @@ public class TtsHelper {
     public static void speak(TextToSpeech tts, String text) {
         if (tts == null || text == null || text.trim().isEmpty()) return;
 
+        // Stop any ongoing TTS
         tts.stop();
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
-        Log.d(TAG, "Speaking: " + text.substring(0, Math.min(50, text.length())));
+
+        // ✅ Small delay to ensure TalkBack releases audio focus
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+            Log.d(TAG, "Speaking: " + text.substring(0, Math.min(50, text.length())));
+        }, 100); // 100ms delay
     }
 
     /**
      * Speak, then execute action when done.
-     * CRITICAL: This uses UtteranceProgressListener properly.
+     * FIXED: Properly handles TalkBack interruption and ensures callback fires.
      */
     public static void speakThen(TextToSpeech tts, String text, Runnable action) {
         if (tts == null || text == null || text.trim().isEmpty()) {
@@ -57,6 +62,7 @@ public class TtsHelper {
             return;
         }
 
+        // Stop any ongoing speech
         tts.stop();
 
         String utterId = "tts_" + System.currentTimeMillis();
@@ -72,7 +78,8 @@ public class TtsHelper {
                 if (utterId.equals(utteranceId)) {
                     Log.d(TAG, "TTS done: " + utteranceId);
                     if (action != null) {
-                        new android.os.Handler(android.os.Looper.getMainLooper()).post(action);
+                        // ✅ Post to main thread with slight delay for audio cleanup
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(action, 200);
                     }
                 }
             }
@@ -81,14 +88,16 @@ public class TtsHelper {
             public void onError(String utteranceId) {
                 Log.e(TAG, "TTS error: " + utteranceId);
                 if (utterId.equals(utteranceId) && action != null) {
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(action);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(action, 200);
                 }
             }
         });
 
-        HashMap<String, String> params = new HashMap<>();
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utterId);
-        Log.d(TAG, "Queued speech (then action): " + text.substring(0, Math.min(50, text.length())));
+        // ✅ Small delay to ensure TalkBack releases audio focus
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utterId);
+            Log.d(TAG, "Queued speech (then action): " + text.substring(0, Math.min(50, text.length())));
+        }, 100); // 100ms delay
     }
 
     /**
