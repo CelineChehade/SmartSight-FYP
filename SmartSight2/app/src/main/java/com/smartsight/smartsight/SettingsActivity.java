@@ -9,7 +9,6 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
-import android.speech.tts.UtteranceProgressListener;
 import android.util.Log;
 import android.widget.TextView;
 
@@ -24,6 +23,7 @@ import java.util.ArrayList;
 public class SettingsActivity extends AppCompatActivity
         implements TextToSpeech.OnInitListener {
 
+    private static final String TAG = "SettingsActivity";
     private TextToSpeech tts;
     private SpeechRecognizer speechRecognizer;
     private Intent recognizerIntent;
@@ -48,6 +48,7 @@ public class SettingsActivity extends AppCompatActivity
     private State state = State.IDLE;
     private String pendingName;
     private float tempSpeed;
+    private boolean isListening = false;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -90,7 +91,7 @@ public class SettingsActivity extends AppCompatActivity
         if (status == TextToSpeech.SUCCESS) {
             TtsHelper.applySettings(this, tts);
 
-            // Speak greeting and then list buttons with pauses
+            // Just speak the greeting - DON'T start listening
             String[] prompts = {
                     getString(R.string.settings_status_default),
                     getString(R.string.btn_change_name),
@@ -99,7 +100,9 @@ public class SettingsActivity extends AppCompatActivity
                     getString(R.string.btn_high_contrast),
                     getString(R.string.btn_reset_data)
             };
-            TtsHelper.speakWithDelay(tts, prompts, 800, this::startListening);
+
+            // Speak all prompts - no automatic listening
+            SettingsPrefs.speakWithDelay(tts, prompts, 800, null);
         }
     }
 
@@ -121,45 +124,72 @@ public class SettingsActivity extends AppCompatActivity
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,
                 LocaleManager.getSttLanguageTag(this));
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
-            @Override public void onReadyForSpeech(Bundle params) {}
-            @Override public void onBeginningOfSpeech() {}
+            @Override public void onReadyForSpeech(Bundle params) {
+                Log.d(TAG, "🎤 Ready for speech");
+            }
+            @Override public void onBeginningOfSpeech() {
+                Log.d(TAG, "🗣️ User speaking");
+            }
             @Override public void onBufferReceived(byte[] buffer) {}
-            @Override public void onEndOfSpeech() {}
+            @Override public void onEndOfSpeech() {
+                Log.d(TAG, "✋ Speech ended");
+            }
             @Override public void onEvent(int eventType, Bundle params) {}
             @Override public void onPartialResults(Bundle partialResults) {}
             @Override public void onRmsChanged(float rmsdB) {}
 
             @Override
             public void onResults(Bundle results) {
+                isListening = false;
                 ArrayList<String> matches =
                         results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+
+                Log.d(TAG, "📝 Heard: " + (matches != null ? matches.toString() : "null"));
+
                 if (matches != null && !matches.isEmpty()) {
                     handleSpeechResult(matches.get(0));
                 } else {
-                    speakAndThen(getString(R.string.didnt_catch),
+                    TtsHelper.speakThen(tts, getString(R.string.didnt_catch),
                             SettingsActivity.this::startListening);
                 }
             }
 
             @Override
             public void onError(int error) {
-                speakAndThen(getString(R.string.didnt_catch),
+                isListening = false;
+                Log.e(TAG, "❌ Speech error: " + error);
+                TtsHelper.speakThen(tts, getString(R.string.didnt_catch),
                         SettingsActivity.this::startListening);
             }
         });
     }
 
     private void startListening() {
+        if (isListening) {
+            Log.w(TAG, "Already listening, skipping");
+            return;
+        }
+
         if (speechRecognizer != null && recognizerIntent != null) {
-            speechRecognizer.startListening(recognizerIntent);
+            try {
+                isListening = true;
+                speechRecognizer.startListening(recognizerIntent);
+                Log.d(TAG, "🎤 Started listening");
+            } catch (Exception e) {
+                isListening = false;
+                Log.e(TAG, "Failed to start listening: " + e.getMessage());
+            }
         }
     }
 
     private void handleSpeechResult(String raw) {
         String spoken = raw.toLowerCase().trim();
-        Log.d("Settings", "state=" + state + " heard=" + spoken);
+        Log.d(TAG, "State=" + state + " Heard=\"" + spoken + "\"");
 
         if (state != State.IDLE && (spoken.contains("cancel") || spoken.contains("back")
                 || spoken.contains("menu") || spoken.contains("annuler")
@@ -176,7 +206,7 @@ public class SettingsActivity extends AppCompatActivity
                 else if (containsAny(spoken, "contrast", "contraste")) startHighContrast();
                 else if (containsAny(spoken, "reset", "réinitialiser")) startResetData();
                 else {
-                    speakAndThen(getString(R.string.settings_please_say_commands),
+                    TtsHelper.speakThen(tts, getString(R.string.settings_please_say_commands),
                             this::startListening);
                 }
                 break;
@@ -184,28 +214,28 @@ public class SettingsActivity extends AppCompatActivity
             case CHANGE_NAME_ASK:
                 pendingName = raw.trim();
                 if (pendingName.isEmpty()) {
-                    speakAndThen(getString(R.string.didnt_catch), this::startListening);
+                    TtsHelper.speakThen(tts, getString(R.string.didnt_catch), this::startListening);
                     return;
                 }
                 state = State.CHANGE_NAME_CONFIRM;
-                speakAndThen(getString(R.string.settings_confirm_new_name, pendingName),
+                TtsHelper.speakThen(tts, getString(R.string.settings_confirm_new_name, pendingName),
                         this::startListening);
                 break;
 
             case CHANGE_NAME_CONFIRM:
-                if (isYes(spoken)) {
+                if (TtsHelper.isYes(spoken)) {
                     UserProfile u = new UserProfile();
                     u.id = 1;
                     u.fullName = pendingName;
                     u.language = SettingsPrefs.getLanguage(this);
                     userViewModel.insertUser(u);
                     returnToMenu(getString(R.string.settings_name_updated, pendingName));
-                } else if (isNo(spoken)) {
+                } else if (TtsHelper.isNo(spoken)) {
                     state = State.CHANGE_NAME_ASK;
-                    speakAndThen(getString(R.string.settings_retry_name),
+                    TtsHelper.speakThen(tts, getString(R.string.settings_retry_name),
                             this::startListening);
                 } else {
-                    speakAndThen(getString(R.string.please_say_yes_no), this::startListening);
+                    TtsHelper.speakThen(tts, getString(R.string.please_say_yes_no), this::startListening);
                 }
                 break;
 
@@ -221,11 +251,11 @@ public class SettingsActivity extends AppCompatActivity
                 if (langCode != null) {
                     SettingsPrefs.setLanguage(this, langCode);
                     final String finalLangName = langName;
-                    speakAndThen(
+                    TtsHelper.speakThen(tts,
                             getString(R.string.settings_language_set, finalLangName),
                             this::restartAppToMain);
                 } else {
-                    speakAndThen(getString(R.string.settings_please_say_language),
+                    TtsHelper.speakThen(tts, getString(R.string.settings_please_say_language),
                             this::startListening);
                 }
                 break;
@@ -247,7 +277,7 @@ public class SettingsActivity extends AppCompatActivity
                             tempSpeed - SettingsPrefs.SPEED_STEP);
                     playSpeedDemo();
                 } else {
-                    speakAndThen(getString(R.string.please_say_speed),
+                    TtsHelper.speakThen(tts, getString(R.string.please_say_speed),
                             this::startListening);
                 }
                 break;
@@ -256,26 +286,26 @@ public class SettingsActivity extends AppCompatActivity
                 if (containsAny(spoken, "enable", "on", "turn on",
                         "activer", "active")) {
                     SettingsPrefs.setHighContrast(this, true);
-                    speakAndThen(getString(R.string.contrast_now_enabled), this::recreate);
+                    TtsHelper.speakThen(tts, getString(R.string.contrast_now_enabled), this::recreate);
                 } else if (containsAny(spoken, "disable", "off", "turn off",
                         "désactiver", "désactive")) {
                     SettingsPrefs.setHighContrast(this, false);
-                    speakAndThen(getString(R.string.contrast_now_disabled), this::recreate);
+                    TtsHelper.speakThen(tts, getString(R.string.contrast_now_disabled), this::recreate);
                 } else {
-                    speakAndThen(getString(R.string.contrast_please_say),
+                    TtsHelper.speakThen(tts, getString(R.string.contrast_please_say),
                             this::startListening);
                 }
                 break;
 
             case RESET_CONFIRM:
-                if (isYes(spoken)) {
+                if (TtsHelper.isYes(spoken)) {
                     repository.wipeAllData(this);
                     SettingsPrefs.clearAll(this);
-                    speakAndThen(getString(R.string.reset_done), this::restartAppToMain);
-                } else if (isNo(spoken)) {
+                    TtsHelper.speakThen(tts, getString(R.string.reset_done), this::restartAppToMain);
+                } else if (TtsHelper.isNo(spoken)) {
                     returnToMenu(getString(R.string.reset_cancelled));
                 } else {
-                    speakAndThen(getString(R.string.please_say_yes_no),
+                    TtsHelper.speakThen(tts, getString(R.string.please_say_yes_no),
                             this::startListening);
                 }
                 break;
@@ -285,13 +315,13 @@ public class SettingsActivity extends AppCompatActivity
     private void startChangeName() {
         state = State.CHANGE_NAME_ASK;
         setStatus(getString(R.string.btn_change_name));
-        speakAndThen(getString(R.string.settings_ask_new_name), this::startListening);
+        TtsHelper.speakThen(tts, getString(R.string.settings_ask_new_name), this::startListening);
     }
 
     private void startLanguage() {
         state = State.LANGUAGE_ASK;
         setStatus(getString(R.string.btn_language));
-        speakAndThen(getString(R.string.settings_ask_language), this::startListening);
+        TtsHelper.speakThen(tts, getString(R.string.settings_ask_language), this::startListening);
     }
 
     private void startVoiceSpeed() {
@@ -303,9 +333,15 @@ public class SettingsActivity extends AppCompatActivity
 
     private void playSpeedDemo() {
         tts.setSpeechRate(tempSpeed);
-        String msg = getString(R.string.speed_test_phrase) + " " +
-                getString(R.string.speed_prompt);
-        speakAndThen(msg, this::startListening);
+
+        String demo = getString(R.string.speed_test_phrase);
+        String prompt = getString(R.string.speed_prompt);
+
+        // Speak demo phrase, THEN ask for feedback
+        TtsHelper.speakThen(tts, demo, () -> {
+            // After demo finishes, ask if speed is good
+            TtsHelper.speakThen(tts, prompt, this::startListening);
+        });
     }
 
     private void startHighContrast() {
@@ -315,20 +351,20 @@ public class SettingsActivity extends AppCompatActivity
         String stateStr = current
                 ? getString(R.string.contrast_state_enabled)
                 : getString(R.string.contrast_state_disabled);
-        speakAndThen(getString(R.string.contrast_ask, stateStr), this::startListening);
+        TtsHelper.speakThen(tts, getString(R.string.contrast_ask, stateStr), this::startListening);
     }
 
     private void startResetData() {
         state = State.RESET_CONFIRM;
         setStatus(getString(R.string.btn_reset_data));
-        speakAndThen(getString(R.string.reset_confirm), this::startListening);
+        TtsHelper.speakThen(tts, getString(R.string.reset_confirm), this::startListening);
     }
 
     private void returnToMenu(String message) {
         state = State.IDLE;
         setStatus(getString(R.string.settings_status_default));
-        speakAndThen(getString(R.string.settings_return_to_menu, message),
-                this::startListening);
+        // Just speak the message - DON'T start listening automatically
+        TtsHelper.speak(tts, getString(R.string.settings_return_to_menu, message));
     }
 
     private void restartAppToMain() {
@@ -347,28 +383,13 @@ public class SettingsActivity extends AppCompatActivity
         return false;
     }
 
-    private boolean isYes(String s) {
-        return s.matches(".*\\b(yes|yeah|yup|yep|sure|okay|ok|correct|right|confirm|oui|ouais|d'accord)\\b.*");
-    }
-
-    private boolean isNo(String s) {
-        return s.matches(".*\\b(no|nope|nah|cancel|stop|wrong|incorrect|non|annuler)\\b.*");
-    }
-
-    private void speakAndThen(String msg, Runnable action) {
-        if (tts == null) return;
-        tts.stop();   // kill any in-flight utterance first — prevents overlap
-        String utterId = "utt_" + System.currentTimeMillis();
-
-        tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-            @Override public void onStart(String utteranceId) {}
-            @Override public void onDone(String utteranceId) {
-                if (utterId.equals(utteranceId)) runOnUiThread(action);
-            }
-            @Override public void onError(String utteranceId) {}
-        });
-
-        tts.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (speechRecognizer != null && isListening) {
+            speechRecognizer.stopListening();
+            isListening = false;
+        }
     }
 
     @Override
