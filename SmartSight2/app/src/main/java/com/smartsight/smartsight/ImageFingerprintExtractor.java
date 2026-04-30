@@ -5,23 +5,15 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Log;
 
-/**
- * Advanced rotation-invariant image fingerprinting.
- * Uses multiple hash sizes to be robust against angle changes.
- */
 public class ImageFingerprintExtractor {
 
     private static final String TAG = "FingerprintExtractor";
-    private static final int HASH_SIZE = 12;  // 12x12 = 144 bits (more robust)
+    private static final int HASH_SIZE = 12;
 
     public ImageFingerprintExtractor(Context context) {
         Log.d(TAG, "Using multi-scale rotation-invariant hash");
     }
 
-    /**
-     * Extract rotation-invariant fingerprint.
-     * Uses brightness distribution which is more stable across angles.
-     */
     public String extractFingerprint(Bitmap bitmap) {
         if (bitmap == null) {
             Log.w(TAG, "extractFingerprint: null bitmap");
@@ -29,13 +21,9 @@ public class ImageFingerprintExtractor {
         }
 
         try {
-            // Step 1: Normalize to square (reduces aspect ratio variance)
             Bitmap square = cropToSquare(bitmap);
-
-            // Step 2: Resize to fixed size
             Bitmap small = Bitmap.createScaledBitmap(square, HASH_SIZE, HASH_SIZE, true);
 
-            // Step 3: Convert to grayscale
             int[] pixels = new int[HASH_SIZE * HASH_SIZE];
             int[] gray = new int[HASH_SIZE * HASH_SIZE];
             small.getPixels(pixels, 0, HASH_SIZE, 0, 0, HASH_SIZE, HASH_SIZE);
@@ -55,9 +43,6 @@ public class ImageFingerprintExtractor {
             }
 
             int average = (int) (totalBrightness / pixels.length);
-
-            // Step 4: Generate hash based on average
-            // Use MEDIAN instead of mean for better robustness
             int median = (minBrightness + maxBrightness) / 2;
             int threshold = (average + median) / 2;
 
@@ -77,9 +62,6 @@ public class ImageFingerprintExtractor {
         }
     }
 
-    /**
-     * Crop bitmap to center square.
-     */
     private Bitmap cropToSquare(Bitmap bitmap) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
@@ -91,10 +73,6 @@ public class ImageFingerprintExtractor {
         return Bitmap.createBitmap(bitmap, x, y, size, size);
     }
 
-    /**
-     * Compare two fingerprints using Hamming distance.
-     * Returns similarity from 0.0 (different) to 1.0 (identical).
-     */
     public static float compareSimilarity(String fp1, String fp2) {
         if (fp1 == null || fp2 == null) {
             Log.w(TAG, "compareSimilarity: null fingerprint");
@@ -113,8 +91,6 @@ public class ImageFingerprintExtractor {
         }
 
         float similarity = (float) matches / total;
-
-        // Log with more detail
         int hammingDistance = total - matches;
         Log.d(TAG, "Similarity: " + String.format("%.2f", similarity * 100) + "% " +
                 "(" + matches + "/" + total + " bits match, Hamming distance=" + hammingDistance + ")");
@@ -123,6 +99,5 @@ public class ImageFingerprintExtractor {
     }
 
     public void close() {
-        // Nothing to close
     }
 }
