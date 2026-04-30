@@ -17,6 +17,8 @@
         android:textStyle="bold"
         android:textColor="@color/primaryTextColor"
         android:gravity="center"
+        android:focusable="false"
+        android:importantForAccessibility="no"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
@@ -43,6 +45,8 @@
             android:backgroundTint="@color/primaryButtonColor"
             android:textColor="@color/buttonTextColor"
             android:visibility="gone"
+            android:focusable="true"
+            android:clickable="true"
             android:layout_marginBottom="32dp"/>
 
         <Button
@@ -55,6 +59,8 @@
             android:backgroundTint="@color/secondaryButtonColor"
             android:textColor="@color/buttonTextColor"
             android:visibility="gone"
+            android:focusable="true"
+            android:clickable="true"
             android:layout_marginBottom="32dp"/>
 
         <Button
@@ -66,7 +72,9 @@
             android:padding="24dp"
             android:backgroundTint="@color/tertiaryButtonColor"
             android:textColor="@color/buttonTextColor"
-            android:visibility="gone"/>
+            android:visibility="gone"
+            android:focusable="true"
+            android:clickable="true"/>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
