@@ -10,7 +10,6 @@ public class SettingsPrefs {
     private static final String KEY_SPEECH_SPEED = "speech_speed";
     private static final String KEY_HIGH_CONTRAST = "high_contrast";
 
-    // Speech speed constants
     public static final float MIN_SPEED = 0.5f;
     public static final float MAX_SPEED = 2.0f;
     public static final float SPEED_STEP = 0.25f;
@@ -62,10 +61,6 @@ public class SettingsPrefs {
         clearAll(context);
     }
 
-    /**
-     * Speak multiple prompts in sequence with delays.
-     * This is a legacy method - new code should use TtsHelper.speakThen() instead.
-     */
     public static void speakWithDelay(android.speech.tts.TextToSpeech tts, String[] prompts, int delayMs, Runnable afterAction) {
         if (tts == null || prompts == null || prompts.length == 0) {
             if (afterAction != null) afterAction.run();
@@ -102,7 +97,6 @@ public class SettingsPrefs {
             }
         });
 
-        java.util.HashMap<String, String> params = new java.util.HashMap<>();
         tts.speak(prompts[index], android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, utterId);
     }
 }
