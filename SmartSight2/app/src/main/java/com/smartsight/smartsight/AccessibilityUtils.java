@@ -1,16 +1,14 @@
 package com.example.smartsight;
 
 import android.content.Context;
-import android.provider.Settings;
+import android.view.accessibility.AccessibilityManager;
 
 public class AccessibilityUtils {
 
     public static boolean isTalkBackEnabled(Context context) {
-        String enabled = Settings.Secure.getString(
-                context.getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        );
+        AccessibilityManager am =
+                (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
 
-        return enabled != null && enabled.toLowerCase().contains("talkback");
+        return am != null && am.isEnabled() && am.isTouchExplorationEnabled();
     }
 }
