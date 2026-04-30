@@ -1,20 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- App -->
+    <!--  App  -->
     <string name="app_name">SmartSight</string>
 
-    <!-- Main Screen -->
+    <!--  Main Screen  -->
     <string name="welcome_default">Welcome</string>
     <string name="welcome_user">Welcome %1$s</string>
-    <string name="btn_smart_scan">Smart Scan</string>
-    <string name="btn_saved_items">Saved Items</string>
-    <string name="btn_settings">Settings</string>
     <string name="smart_scan_button">Smart Scan</string>
     <string name="saved_items_button">Saved Items</string>
     <string name="settings_button">Settings</string>
     <string name="main_menu_ready">Main menu ready.</string>
 
-    <!-- Onboarding (name capture) -->
+    <!--  Onboarding (name capture)  -->
     <string name="ask_name">Please say your full name.</string>
     <string name="confirm_name">You said %1$s. Is that correct?</string>
     <string name="try_again">Let\'s try again.</string>
@@ -22,40 +18,40 @@
     <string name="please_answer_yes_no">Please answer yes or no.</string>
     <string name="didnt_catch">I didn\'t catch that. Please try again.</string>
 
-    <!-- TalkBack prompt -->
+    <!--  TalkBack prompt  -->
     <string name="talkback_not_enabled">TalkBack is not enabled. Opening accessibility settings now.</string>
     <string name="talkback_settings_opened">Accessibility settings opened. Please enable TalkBack if needed.</string>
 
-    <!-- Smart Scan Screen -->
+    <!--  Smart Scan Screen  -->
     <string name="smart_scan_title">Smart Scan</string>
     <string name="scan_button_label">Scan</string>
     <string name="scan_button_description">Scan button. Double tap to capture.</string>
-    <string name="scanning">Scanning</string>
+    <string name="scanning">Scanning…</string>
     <string name="could_not_process">Sorry, couldn\'t process the image.</string>
     <string name="capture_failed">Capture failed. Please try again.</string>
-    <string name="couldnt_identify">I couldn\'t identify anything</string>
-    <string name="object_detector_not_ready">Object detector not ready</string>
-    <string name="error_detecting">Error detecting objects</string>
+    <string name="couldnt_identify">I couldn\'t identify anything.</string>
+    <string name="object_detector_not_ready">Object detector not ready.</string>
+    <string name="error_detecting">Error detecting objects.</string>
     <string name="i_see_a">I see a %1$s</string>
+    <!--  FIX: used for 2nd+ unmatched objects so we never repeat "I see a" -->
+    <string name="and_a">and a %1$s</string>
     <string name="this_is_your">This is your %1$s</string>
-
-    <!-- SmartScan startup instructions -->
     <string name="instruction_non_talkback_scan">Smart Scan ready. Hold anywhere on the screen for two seconds to capture an image.</string>
     <string name="instruction_talkback_scan">Smart Scan ready. Tap the scan button to capture an image.</string>
 
-    <!-- Save flow -->
+    <!--  Save flow  -->
     <string name="ask_save">Do you want to save this? Say yes or no.</string>
     <string name="ask_name_for_item">What name would you like to give it?</string>
     <string name="please_say_yes_no">Please say yes or no.</string>
     <string name="not_saving">Okay, not saving.</string>
-    <string name="saved_as">Saved as %1$s</string>
+    <string name="saved_as">Saved as %1$s.</string>
     <string name="didnt_catch_name">I didn\'t catch the name. Please say it again.</string>
 
-    <!-- Saved Items Screen -->
-    <string name="saved_scans_title">Saved Scans</string>
+    <!--  Saved Items Screen  -->
+    <string name="saved_scans_title">My Saved Items</string>
     <string name="no_saved_items">You have no saved items yet.</string>
-    <string name="saved_items_count_one">You have 1 saved item. Tap an item to hear details, or hold to rename or delete.</string>
-    <string name="saved_items_count_many">You have %1$d saved items. Tap an item to hear details, or hold to rename, delete, or edit reminder.</string>
+    <string name="saved_items_count_one">You have 1 saved item. Tap to hear details, or hold to rename or delete.</string>
+    <string name="saved_items_count_many">You have %1$d saved items. Tap to hear details, or hold to rename, delete, or manage reminders.</string>
     <string name="hold_to_edit">Hold to rename or delete.</string>
     <string name="this_is_text_note">This is a text note.</string>
     <string name="this_is_object">This is an object.</string>
@@ -64,7 +60,7 @@
     <string name="saved_item_image_description">Saved item image</string>
     <string name="btn_delete_description">Delete this item</string>
 
-    <!-- VoiceEditManager -->
+    <!--  VoiceEditManager  -->
     <string name="vem_ask_action">What do you want to do? Say delete or rename.</string>
     <string name="vem_please_delete_or_rename">Please say delete or rename.</string>
     <string name="vem_confirm_delete">Are you sure you want to delete %1$s?</string>
@@ -73,23 +69,26 @@
     <string name="vem_deleted">Deleted.</string>
     <string name="vem_renamed_to">Renamed to %1$s.</string>
     <string name="vem_cancelled">Cancelled.</string>
+    <string name="vem_ask_action_no_reminder">What do you want to do? Say rename, add reminder, or delete.</string>
+    <string name="vem_ask_action_with_reminder">What do you want to do? Say rename, edit reminder, delete reminder, or delete.</string>
 
-    <!-- Settings Screen -->
+    <!--  Settings Screen  -->
     <string name="settings_title">Settings</string>
-    <string name="settings_greeting">Welcome to Settings.</string>
+    <string name="settings_greeting">Settings. Say one of these options: change name, language, voice speed, or reset all data.</string>
     <string name="settings_status_default">Say a command or tap a button below.</string>
     <string name="settings_return_to_menu">%1$s Say another command, or press back to return.</string>
-    <string name="settings_please_say_commands">Please say one of: change name, language, voice speed, high contrast, or reset all data.</string>
+    <string name="settings_please_say_commands">Please say one of: change name, language, voice speed, or reset all data.</string>
+    <string name="please_say_yes_no_settings">Please say yes or no.</string>
 
-    <!-- Change name -->
+    <!--  Change name  -->
     <string name="btn_change_name">Change Name</string>
     <string name="btn_change_name_description">Change user name.</string>
     <string name="settings_ask_new_name">What is your new name?</string>
     <string name="settings_confirm_new_name">I heard %1$s. Is that correct? Say yes or no.</string>
     <string name="settings_retry_name">Let\'s try again. What is your new name?</string>
-    <string name="settings_name_updated">Name updated to %1$s</string>
+    <string name="settings_name_updated">Name updated to %1$s.</string>
 
-    <!-- Language -->
+    <!--  Language  -->
     <string name="btn_language">Language</string>
     <string name="btn_language_description">Change app language.</string>
     <string name="settings_ask_language">Say the language. English or French.</string>
@@ -98,7 +97,7 @@
     <string name="lang_english">English</string>
     <string name="lang_french">French</string>
 
-    <!-- Voice speed -->
+    <!--  Voice speed  -->
     <string name="btn_voice_speed">Voice Speed</string>
     <string name="btn_voice_speed_description">Adjust voice speed.</string>
     <string name="speed_test_phrase">The quick brown fox jumps over the lazy dog.</string>
@@ -106,79 +105,62 @@
     <string name="speed_saved">Voice speed saved.</string>
     <string name="please_say_speed">Please say faster, slower, or good.</string>
 
-    <!-- High contrast -->
-    <string name="btn_high_contrast">High Contrast</string>
-    <string name="btn_high_contrast_description">Toggle high contrast mode.</string>
-    <string name="contrast_state_enabled">enabled</string>
-    <string name="contrast_state_disabled">disabled</string>
-    <string name="contrast_ask">High contrast is currently %1$s. Say enable or disable.</string>
-    <string name="contrast_please_say">Please say enable or disable.</string>
-    <string name="contrast_now_enabled">High contrast enabled. Restarting screen.</string>
-    <string name="contrast_now_disabled">High contrast disabled. Restarting screen.</string>
-
-    <!-- Reset data -->
+    <!--  Reset data  -->
     <string name="btn_reset_data">Reset All Data</string>
     <string name="btn_reset_data_description">Reset all saved data.</string>
     <string name="reset_confirm">This will delete all your saved items, notes, and settings. Are you sure? Say yes or no.</string>
     <string name="reset_done">All data has been deleted. The app will restart.</string>
     <string name="reset_cancelled">Reset cancelled.</string>
 
-    <!-- Reminder notifications -->
+    <!--  Reminder notifications  -->
     <string name="reminder_notification_title">SmartSight Reminder</string>
     <string name="reminder_notification_body">Reminder: %1$s</string>
+    <string name="reminder_notification_message">Reminder: %1$s</string>
 
-    <!-- Reminder voice flow -->
+    <!--  Reminder voice flow  -->
     <string name="reminder_ask_frequency">How often should I remind you? Say once, daily, weekly, monthly, or yearly.</string>
+    <string name="reminder_ask_year">What year? Say the year, for example 2025, or say this year or next year.</string>
+    <string name="reminder_ask_month">What month? Say the month number from 1 to 12, or say the month name.</string>
+    <string name="reminder_ask_day">What day? Say the day number from 1 to 31, or say today or tomorrow.</string>
     <string name="reminder_ask_hour">At what hour? Say a number from 1 to 12.</string>
     <string name="reminder_ask_minute">At what minute? Say a number from 0 to 59, or say o\'clock for zero.</string>
     <string name="reminder_ask_ampm">Should that be A M or P M? Say morning for A M, or evening for P M.</string>
-    <string name="reminder_confirm">%1$s Is that correct? Say yes or no.</string>
-    <string name="reminder_summary_format">I will remind you %1$s at %2$d %3$s %4$s.</string>
+    <string name="reminder_confirm">%1$s. Is that correct? Say yes or no.</string>
+    <string name="reminder_summary_format">I will remind you %1$s at %2$d:%3$02d %4$s on %5$04d-%6$02d-%7$02d.</string>
     <string name="reminder_please_say_frequency">Please say once, daily, weekly, monthly, or yearly.</string>
+    <string name="reminder_please_say_year">I didn\'t catch that. Please say the year, or say this year or next year.</string>
+    <string name="reminder_please_say_month">I didn\'t catch that. Please say the month number or month name.</string>
+    <string name="reminder_please_say_day">I didn\'t catch that. Please say the day number, today, or tomorrow.</string>
     <string name="reminder_please_say_hour">Please say a number from 1 to 12.</string>
     <string name="reminder_please_say_minute">Please say a number from 0 to 59, or say o\'clock.</string>
     <string name="reminder_please_say_ampm">Please say A M or P M.</string>
     <string name="reminder_restart">Let\'s start over.</string>
     <string name="reminder_saved">Reminder saved.</string>
     <string name="reminder_removed">Reminder removed.</string>
+    <string name="reminder_failed">Couldn\'t save the reminder. Please try again later.</string>
 
-    <!-- Frequency labels (for summary) -->
+    <!--  Frequency labels (used in summary read-back)  -->
     <string name="freq_once">once</string>
     <string name="freq_daily">every day</string>
     <string name="freq_weekly">every week</string>
     <string name="freq_monthly">every month</string>
     <string name="freq_yearly">every year</string>
 
-    <!-- AM/PM labels -->
-    <string name="ampm_am">A M</string>
-    <string name="ampm_pm">P M</string>
+    <!--  AM/PM labels  -->
+    <string name="ampm_am">AM</string>
+    <string name="ampm_pm">PM</string>
 
-    <!-- Reminder save flow -->
+    <!--  Reminder save flow  -->
     <string name="ask_add_reminder">Would you like to add a reminder for this item? Say yes or no.</string>
-    <string name="reminder_failed">Couldn\'t save the reminder. Please try again later.</string>
 
-    <!-- VoiceEditManager -->
-    <string name="vem_ask_action_no_reminder">What do you want to do? Say rename, add reminder, or delete.</string>
-    <string name="vem_ask_action_with_reminder">What do you want to do? Say rename, edit reminder, delete reminder, or delete.</string>
-
-    <!-- Reminder date prompts -->
-    <string name="reminder_ask_year">What year? Say the year, or say this year, or next year.</string>
-    <string name="reminder_ask_month">What month? Say the month number from 1 to 12, or say the month name.</string>
-    <string name="reminder_ask_day">What day? Say the day number from 1 to 31, or say today, or tomorrow.</string>
-
-    <string name="reminder_please_say_year">I didn\'t catch that. Please say the year.</string>
-    <string name="reminder_please_say_month">I didn\'t catch that. Please say the month.</string>
-    <string name="reminder_please_say_day">I didn\'t catch that. Please say the day.</string>
-
-    <string name="found_both_text_and_object">I found text that says: %1$s. I also detected an object: %2$s. What would you like to save? Say text or object.</string>
-    <string name="ask_text_or_object">Say text or object.</string>
-    <string name="please_say_text_or_object">I didn\'t catch that. Please say text or object.</string>
-
-    <!-- Reminder notification -->
-    <string name="reminder_notification_message">Reminder: %1$s</string>
-
-    <!-- Multiple objects -->
+    <!--  Multiple objects  -->
     <string name="ask_which_object">Which object would you like to save?</string>
     <string name="please_say_which_object">I didn\'t catch that. Please say which object you want.</string>
+    <string name="ask_text_or_object">Say text or object.</string>
+    <string name="please_say_text_or_object">I didn\'t catch that. Please say text or object.</string>
+    <string name="found_both_text_and_object">I found text that says: %1$s. I also detected an object: %2$s. What would you like to save? Say text or object.</string>
 
+    <!--  Conjunction used when listing multiple objects  -->
+    <string name="i_see_prefix">I see </string>
+    <string name="and_conjunction">and</string>
 </resources>
