@@ -2,7 +2,6 @@ package com.example.smartsight;
 
 import android.Manifest;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -14,8 +13,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.speech.RecognitionListener;
-import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
@@ -26,7 +23,12 @@ import android.widget.Button;
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.*;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ExperimentalGetImage;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.ImageProxy;
+import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
@@ -51,63 +53,48 @@ import java.util.concurrent.Executors;
 
 public class SmartScanActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
 
-    private static final String TAG = "SmartScanActivity";
-    private TextToSpeech tts;
-    private PreviewView previewView;
-    private ImageCapture imageCapture;
-    private Button btnScan;
-    private SpeechRecognizer speechRecognizer;
-    private Intent recognizerIntent;
+    private static final String TAG          = "SmartScanActivity";
+    // FIX: Increased STT delay so TTS always finishes before listening starts
+    private static final long   STT_DELAY_MS = 1200;
+    private static final int    MAX_RETRIES  = 3;
+
+    private TextToSpeech   tts;
+    private PreviewView    previewView;
+    private ImageCapture   imageCapture;
+    private Button         btnScan;
     private ObjectDetector objectDetector;
     private ImageFingerprintExtractor fingerprintExtractor;
-    private ItemMatcher itemMatcher;
-    private ItemViewModel itemViewModel;
-    private NoteViewModel noteViewModel;
-    private AppRepository repository;
+    private ItemMatcher    itemMatcher;
+    private ItemViewModel  itemViewModel;
+    private NoteViewModel  noteViewModel;
+    private AppRepository  repository;
     private ReminderVoiceFlow reminderFlow;
 
     private static final int CAMERA_PERMISSION_CODE = 100;
-    private static final int AUDIO_PERMISSION_CODE = 101;
+    private static final int AUDIO_PERMISSION_CODE  = 101;
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private boolean isHolding = false;
+    private final Handler  handler            = new Handler(Looper.getMainLooper());
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
 
-    private enum SaveState {
-        IDLE,
-        ASK_WHICH_OBJECT,      // NEW: when multiple objects detected
-        ASK_TEXT_OR_OBJECT,    // When chosen object has text
-        ASK_SAVE,
-        ASK_NAME,
-        ASK_REMINDER
-    }
+    private boolean isHolding  = false;
+    private int     retryCount = 0;
+
+    private enum SaveState { IDLE, ASK_WHICH_OBJECT, ASK_TEXT_OR_OBJECT, ASK_SAVE, ASK_NAME, ASK_REMINDER }
     private SaveState saveState = SaveState.IDLE;
 
     private enum ScanType { TEXT, OBJECT }
     private ScanType lastScanType;
 
-    private String lastScannedText;
-    private List<DetectedObject> detectedObjects = new ArrayList<>();  // NEW: multiple objects
-    private DetectedObject chosenObject;  // NEW: user's choice
+    private String               lastScannedText;
+    private List<DetectedObject> detectedObjects = new ArrayList<>();
+    private DetectedObject       chosenObject;
+    private Bitmap               lastCapturedBitmap;
+    private int                  lastSavedItemId   = -1;
+    private String               lastSavedItemName;
 
-    private Bitmap lastCapturedBitmap;
-
-    private int lastSavedItemId = -1;
-    private String lastSavedItemName;
-
-    private boolean isListening = false;
-
-    // Helper class to store detected objects
     private static class DetectedObject {
-        String label;
-        Bitmap crop;
-        String fingerprint;
-
-        DetectedObject(String label, Bitmap crop, String fingerprint) {
-            this.label = label;
-            this.crop = crop;
-            this.fingerprint = fingerprint;
-        }
+        String label; Bitmap crop; String fingerprint;
+        DetectedObject(String l, Bitmap c, String f) { label=l; crop=c; fingerprint=f; }
     }
 
     @Override
@@ -118,26 +105,22 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        if (SettingsPrefs.isHighContrast(this)) {
+        if (SettingsPrefs.isHighContrast(this))
             setTheme(android.R.style.Theme_Black_NoTitleBar);
-        }
 
         setContentView(R.layout.activity_smart_scan);
-
         previewView = findViewById(R.id.cameraPreview);
-        btnScan = findViewById(R.id.btnScan);
+        btnScan     = findViewById(R.id.btnScan);
 
         tts = new TextToSpeech(this, this);
-
         initObjectDetector();
-
         fingerprintExtractor = new ImageFingerprintExtractor(this);
-        itemMatcher = new ItemMatcher(this, fingerprintExtractor);
+        itemMatcher          = new ItemMatcher(this, fingerprintExtractor);
+        itemViewModel        = new ViewModelProvider(this).get(ItemViewModel.class);
+        noteViewModel        = new ViewModelProvider(this).get(NoteViewModel.class);
+        repository           = new AppRepository(this);
 
-        itemViewModel = new ViewModelProvider(this).get(ItemViewModel.class);
-        noteViewModel = new ViewModelProvider(this).get(NoteViewModel.class);
-        repository = new AppRepository(this);
+        SharedSpeechRecognizer.init(this);
 
         requestPermissionsIfNeeded();
         setupScanUI();
@@ -153,26 +136,20 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
             TtsHelper.applySettings(this, tts);
-
-            if (AccessibilityUtils.isTalkBackEnabled(this)) {
-                TtsHelper.speak(tts, getString(R.string.instruction_talkback_scan));
-            } else {
-                TtsHelper.speak(tts, getString(R.string.instruction_non_talkback_scan));
-            }
+            TtsHelper.speak(tts, AccessibilityUtils.isTalkBackEnabled(this)
+                    ? getString(R.string.instruction_talkback_scan)
+                    : getString(R.string.instruction_non_talkback_scan));
         }
     }
 
     private void setupScanUI() {
-        boolean talkBackOn = AccessibilityUtils.isTalkBackEnabled(this);
-        View root = findViewById(R.id.smartScanRoot);
-
-        if (talkBackOn) {
+        boolean tb   = AccessibilityUtils.isTalkBackEnabled(this);
+        View    root = findViewById(R.id.smartScanRoot);
+        if (tb) {
             btnScan.setVisibility(View.VISIBLE);
             btnScan.setContentDescription(getString(R.string.scan_button_description));
             btnScan.setOnClickListener(v -> {
-                if (saveState == SaveState.IDLE && imageCapture != null) {
-                    captureImage();
-                }
+                if (saveState == SaveState.IDLE && imageCapture != null) captureImage();
             });
             root.setOnTouchListener(null);
             root.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -180,7 +157,6 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
             btnScan.setVisibility(View.GONE);
             root.setOnTouchListener((v, event) -> {
                 if (saveState != SaveState.IDLE) return true;
-
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         isHolding = true;
@@ -188,7 +164,6 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
                             if (isHolding && imageCapture != null) captureImage();
                         }, 2000);
                         return true;
-
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         isHolding = false;
@@ -201,150 +176,60 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     }
 
     private void requestPermissionsIfNeeded() {
-        boolean cameraOk = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+        boolean camOk = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED;
-        boolean audioOk = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        boolean micOk = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED;
-
-        if (!cameraOk) {
+        if (!camOk) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
-        } else if (!audioOk) {
+        } else if (!micOk) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_CODE);
         } else {
-            initSpeechRecognizer();
             startCamera();
         }
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == CAMERA_PERMISSION_CODE
-                && grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+    public void onRequestPermissionsResult(int code, @NonNull String[] perms,
+                                           @NonNull int[] results) {
+        super.onRequestPermissionsResult(code, perms, results);
+        if (code == CAMERA_PERMISSION_CODE
+                && results.length > 0
+                && results[0] == PackageManager.PERMISSION_GRANTED) {
             startCamera();
-
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_CODE);
-            } else {
-                initSpeechRecognizer();
             }
-        }
-
-        if (requestCode == AUDIO_PERMISSION_CODE
-                && grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            initSpeechRecognizer();
         }
     }
 
     private void initObjectDetector() {
         try {
-            ObjectDetector.ObjectDetectorOptions options =
-                    ObjectDetector.ObjectDetectorOptions.builder()
-                            .setMaxResults(5)  // INCREASED from 3 to 5
-                            .setScoreThreshold(0.4f)  // LOWERED from 0.5 to catch more objects
-                            .build();
-
             objectDetector = ObjectDetector.createFromFileAndOptions(
-                    this, "object_detection.tflite", options);
+                    this, "object_detection.tflite",
+                    ObjectDetector.ObjectDetectorOptions.builder()
+                            .setMaxResults(5)
+                            .setScoreThreshold(0.4f)
+                            .build());
         } catch (Exception e) {
-            Log.e(TAG, "Failed to load model: " + e.getMessage());
-        }
-    }
-
-    private void initSpeechRecognizer() {
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
-        recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,
-                LocaleManager.getSttLanguageTag(this));
-        recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
-        recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-        recognizerIntent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-
-        speechRecognizer.setRecognitionListener(new RecognitionListener() {
-            @Override public void onReadyForSpeech(Bundle params) {
-                Log.d(TAG, "🎤 Ready for speech");
-            }
-            @Override public void onBeginningOfSpeech() {
-                Log.d(TAG, "🗣️ User speaking");
-            }
-            @Override public void onBufferReceived(byte[] buffer) {}
-            @Override public void onEndOfSpeech() {
-                Log.d(TAG, "✋ Speech ended");
-            }
-            @Override public void onEvent(int eventType, Bundle params) {}
-            @Override public void onPartialResults(Bundle partialResults) {}
-            @Override public void onRmsChanged(float rmsdB) {}
-
-            @Override
-            public void onResults(Bundle results) {
-                isListening = false;
-                ArrayList<String> matches =
-                        results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-
-                Log.d(TAG, "📝 Heard: " + (matches != null ? matches.toString() : "null"));
-
-                if (matches != null && !matches.isEmpty()) {
-                    handleSpeechResult(matches.get(0));
-                } else {
-                    TtsHelper.speakThen(tts, getString(R.string.didnt_catch), SmartScanActivity.this::startListening);
-                }
-            }
-
-            @Override
-            public void onError(int error) {
-                isListening = false;
-                Log.e(TAG, "❌ Speech error: " + error);
-
-                handler.postDelayed(() -> {
-                    TtsHelper.speakThen(tts, getString(R.string.didnt_catch), SmartScanActivity.this::startListening);
-                }, 500);
-            }
-        });
-    }
-
-    private void startListening() {
-        if (isListening) {
-            Log.w(TAG, "Already listening, skipping");
-            return;
-        }
-
-        if (speechRecognizer != null && recognizerIntent != null) {
-            try {
-                isListening = true;
-                speechRecognizer.startListening(recognizerIntent);
-                Log.d(TAG, "🎤 Started listening");
-            } catch (Exception e) {
-                isListening = false;
-                Log.e(TAG, "Failed to start listening: " + e.getMessage());
-            }
+            Log.e(TAG, "Model load failed: " + e.getMessage());
         }
     }
 
     private void startCamera() {
         ProcessCameraProvider.getInstance(this).addListener(() -> {
             try {
-                ProcessCameraProvider cameraProvider =
-                        ProcessCameraProvider.getInstance(this).get();
-
+                ProcessCameraProvider p = ProcessCameraProvider.getInstance(this).get();
                 Preview preview = new Preview.Builder().build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
-
                 imageCapture = new ImageCapture.Builder().build();
-
-                cameraProvider.unbindAll();
-                cameraProvider.bindToLifecycle(this,
+                p.unbindAll();
+                p.bindToLifecycle(this,
                         CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture);
-
             } catch (Exception e) {
                 Log.e(TAG, "Camera error: " + e.getMessage());
             }
@@ -354,254 +239,231 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     @OptIn(markerClass = ExperimentalGetImage.class)
     private void captureImage() {
         TtsHelper.speak(tts, getString(R.string.scanning));
-
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override
                     public void onCaptureSuccess(@NonNull ImageProxy image) {
-                        int rotation = image.getImageInfo().getRotationDegrees();
-                        Bitmap bitmap = imageProxyToBitmap(image);
-                        Bitmap rotatedBitmap = rotateBitmap(bitmap, rotation);
+                        // FIX: guard against null mediaImage before calling fromMediaImage
+                        android.media.Image mediaImage = image.getImage();
+                        int rot = image.getImageInfo().getRotationDegrees();
+                        Bitmap bm = imageProxyToBitmap(image);
+                        Bitmap rotated = rotateBitmap(bm, rot);
 
-                        InputImage inputImage =
-                                InputImage.fromMediaImage(image.getImage(), rotation);
-
-                        processBothTextAndObjects(inputImage, rotatedBitmap);
+                        if (mediaImage != null) {
+                            processBothTextAndObjects(
+                                    InputImage.fromMediaImage(mediaImage, rot), rotated);
+                        } else if (rotated != null) {
+                            // Fallback: build InputImage from the bitmap
+                            processBothTextAndObjects(
+                                    InputImage.fromBitmap(rotated, 0), rotated);
+                        } else {
+                            runOnUiThread(() ->
+                                    TtsHelper.speak(tts, getString(R.string.capture_failed)));
+                        }
                         image.close();
                     }
 
                     @Override
-                    public void onError(@NonNull ImageCaptureException exception) {
-                        Log.e(TAG, "Capture failed: " + exception.getMessage());
-                        runOnUiThread(() -> TtsHelper.speak(tts, getString(R.string.capture_failed)));
+                    public void onError(@NonNull ImageCaptureException e) {
+                        runOnUiThread(() ->
+                                TtsHelper.speak(tts, getString(R.string.capture_failed)));
                     }
                 });
     }
 
     private void processBothTextAndObjects(InputImage inputImage, Bitmap bitmap) {
-        final String[] detectedText = {null};
+        final String[]             detectedText = {null};
         final List<DetectedObject> foundObjects = new ArrayList<>();
+        // Track how many async tasks are still running
+        final int[] pending = {2};
 
-        // Run OCR
+        Runnable checkDone = () -> {
+            pending[0]--;
+            if (pending[0] == 0) {
+                runOnUiThread(() ->
+                        checkScanComplete(detectedText[0], foundObjects, bitmap));
+            }
+        };
+
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
                 .process(inputImage)
-                .addOnCompleteListener(textTask -> {
-                    if (textTask.isSuccessful() && textTask.getResult() != null) {
-                        String text = textTask.getResult().getText().trim();
-                        if (!text.isEmpty()) {
-                            detectedText[0] = text;
-                        }
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        String t = task.getResult().getText().trim();
+                        if (!t.isEmpty()) detectedText[0] = t;
                     }
-                    checkScanComplete(detectedText[0], foundObjects, bitmap);
+                    checkDone.run();
                 });
 
-        // Run object detection (ALL objects, not just first)
         backgroundExecutor.execute(() -> {
             try {
-                if (objectDetector == null) {
-                    runOnUiThread(() -> checkScanComplete(detectedText[0], foundObjects, bitmap));
-                    return;
+                if (objectDetector != null) {
+                    for (Detection d : objectDetector.detect(TensorImage.fromBitmap(bitmap))) {
+                        if (d.getCategories().isEmpty()) continue;
+                        String label = d.getCategories().get(0).getLabel();
+                        RectF  boxF  = d.getBoundingBox();
+                        Rect   box   = new Rect(
+                                (int) boxF.left, (int) boxF.top,
+                                (int) boxF.right, (int) boxF.bottom);
+                        Bitmap crop  = ItemMatcher.cropToBoundingBox(bitmap, box);
+                        foundObjects.add(new DetectedObject(
+                                label, crop,
+                                fingerprintExtractor.extractFingerprint(crop)));
+                    }
                 }
-
-                TensorImage tensorImage = TensorImage.fromBitmap(bitmap);
-                List<Detection> results = objectDetector.detect(tensorImage);
-
-                Log.d(TAG, "Object detection found " + results.size() + " objects");
-
-                // Process ALL detected objects
-                for (Detection detection : results) {
-                    if (detection.getCategories().isEmpty()) continue;
-
-                    String label = detection.getCategories().get(0).getLabel();
-                    RectF boxF = detection.getBoundingBox();
-                    Rect box = new Rect((int) boxF.left, (int) boxF.top,
-                            (int) boxF.right, (int) boxF.bottom);
-
-                    Bitmap crop = ItemMatcher.cropToBoundingBox(bitmap, box);
-                    String fingerprint = fingerprintExtractor.extractFingerprint(crop);
-
-                    foundObjects.add(new DetectedObject(label, crop, fingerprint));
-                    Log.d(TAG, "  - " + label);
-                }
-
-                runOnUiThread(() -> checkScanComplete(detectedText[0], foundObjects, bitmap));
-
             } catch (Exception e) {
                 Log.e(TAG, "Detection failed: " + e.getMessage());
-                runOnUiThread(() -> checkScanComplete(detectedText[0], foundObjects, bitmap));
             }
+            checkDone.run();
         });
     }
 
-    private void checkScanComplete(String text, List<DetectedObject> objects, Bitmap fullBitmap) {
-        boolean hasText = (text != null && !text.isEmpty());
-        boolean hasObjects = (!objects.isEmpty());
+    private void checkScanComplete(String text, List<DetectedObject> objects, Bitmap bm) {
+        lastCapturedBitmap = bm;
+        lastScannedText    = text;
+        detectedObjects    = new ArrayList<>(objects);
 
-        lastCapturedBitmap = fullBitmap;
-        lastScannedText = text;
-        detectedObjects = new ArrayList<>(objects);
+        boolean hasText    = text != null && !text.isEmpty();
+        boolean hasObjects = !objects.isEmpty();
 
         if (!hasText && !hasObjects) {
             TtsHelper.speak(tts, getString(R.string.couldnt_identify));
             saveState = SaveState.IDLE;
             return;
         }
-
         vibrate();
 
-        // Check for matches FIRST
         if (hasText) {
             backgroundExecutor.execute(() -> {
-                SavedItem textMatch = itemMatcher.matchText(text);
+                SavedItem match = itemMatcher.matchText(text);
                 runOnUiThread(() -> {
-                    if (textMatch != null) {
-                        TtsHelper.speak(tts, getString(R.string.this_is_your, textMatch.customName));
+                    if (match != null) {
+                        TtsHelper.speak(tts, getString(R.string.this_is_your, match.customName));
                         saveState = SaveState.IDLE;
-                        return;
+                    } else {
+                        checkObjectMatches(true, hasObjects);
                     }
-                    checkObjectMatches(hasText, hasObjects);
                 });
             });
         } else {
-            checkObjectMatches(hasText, hasObjects);
+            checkObjectMatches(false, hasObjects);
         }
     }
 
     private void checkObjectMatches(boolean hasText, boolean hasObjects) {
         if (!hasObjects) {
-            // Only text, no match found
             lastScanType = ScanType.TEXT;
-            TtsHelper.speakThen(tts, lastScannedText, this::askIfSave);
+            saveState    = SaveState.ASK_SAVE;
+            speakThenListen(lastScannedText + ". " + getString(R.string.ask_save));
             return;
         }
 
-        // Check ALL objects for matches
         backgroundExecutor.execute(() -> {
-            List<SavedItem> matchedItems = new ArrayList<>();
-            List<DetectedObject> unmatchedObjects = new ArrayList<>();
-
-            Log.d(TAG, "Checking " + detectedObjects.size() + " detected objects against saved items");
-
+            List<SavedItem>      matched   = new ArrayList<>();
+            List<DetectedObject> unmatched = new ArrayList<>();
             for (DetectedObject obj : detectedObjects) {
-                SavedItem match = itemMatcher.matchObject(obj.crop, obj.label);
-                if (match != null) {
-                    Log.d(TAG, "✅ Object \"" + obj.label + "\" matched to saved item \"" + match.customName + "\"");
-                    matchedItems.add(match);
-                } else {
-                    Log.d(TAG, "❌ Object \"" + obj.label + "\" has no match");
-                    unmatchedObjects.add(obj);
-                }
+                SavedItem m = itemMatcher.matchObject(obj.crop, obj.label);
+                if (m != null) matched.add(m);
+                else unmatched.add(obj);
             }
 
             runOnUiThread(() -> {
-                // Build announcement
-                StringBuilder announcement = new StringBuilder();
+                // FIX: Build the announcement without duplicating "I see a".
+                // Matched items use "This is your X".
+                // Unmatched items: first one uses "I see a X", subsequent ones
+                // are appended with ", and a Y" — no repeated "I see a" prefix.
+                StringBuilder sb = new StringBuilder();
 
-                // Announce matched objects first
-                if (!matchedItems.isEmpty()) {
-                    for (int i = 0; i < matchedItems.size(); i++) {
-                        if (i > 0) announcement.append(". ");
-                        announcement.append("This is your ").append(matchedItems.get(i).customName);
+                for (int i = 0; i < matched.size(); i++) {
+                    if (sb.length() > 0) sb.append(". ");
+                    sb.append(getString(R.string.this_is_your, matched.get(i).customName));
+                }
+
+                if (!unmatched.isEmpty()) {
+                    if (sb.length() > 0) sb.append(". ");
+                    // First unmatched object
+                    String firstLabel = LabelTranslator.translate(
+                            SmartScanActivity.this, unmatched.get(0).label);
+                    sb.append(getString(R.string.i_see_a, firstLabel));
+                    // Additional unmatched objects — joined naturally, no repeated prefix
+                    for (int i = 1; i < unmatched.size(); i++) {
+                        String lbl = LabelTranslator.translate(
+                                SmartScanActivity.this, unmatched.get(i).label);
+                        sb.append(", ").append(getString(R.string.and_a, lbl));
                     }
                 }
 
-                // Then announce unmatched objects
-                if (!unmatchedObjects.isEmpty()) {
-                    if (!matchedItems.isEmpty()) {
-                        announcement.append(". I also see ");
-                    } else {
-                        announcement.append("I see ");
-                    }
+                String announcement = sb.toString();
 
-                    for (int i = 0; i < unmatchedObjects.size(); i++) {
-                        String translated = LabelTranslator.translate(this, unmatchedObjects.get(i).label);
-                        announcement.append(translated);
-                        if (i < unmatchedObjects.size() - 2) {
-                            announcement.append(", ");
-                        } else if (i == unmatchedObjects.size() - 2) {
-                            announcement.append(" and ");
-                        }
-                    }
-                }
-
-                if (!matchedItems.isEmpty() && unmatchedObjects.isEmpty()) {
-                    // Only matches, no new objects
-                    TtsHelper.speak(tts, announcement.toString());
+                if (!matched.isEmpty() && unmatched.isEmpty()) {
+                    TtsHelper.speak(tts, announcement);
                     saveState = SaveState.IDLE;
-                } else if (matchedItems.isEmpty() && !unmatchedObjects.isEmpty()) {
-                    // Only unmatched objects - proceed to ask which one to save
-                    announceDetectedItems(hasText, hasObjects);
+                } else if (unmatched.size() > 1) {
+                    saveState = SaveState.ASK_WHICH_OBJECT;
+                    speakThenListen(announcement + ". "
+                            + getString(R.string.ask_which_object));
+                } else if (unmatched.size() == 1 && hasText) {
+                    chosenObject = unmatched.get(0);
+                    saveState    = SaveState.ASK_TEXT_OR_OBJECT;
+                    speakThenListen(announcement + ". "
+                            + getString(R.string.ask_text_or_object));
                 } else {
-                    // Both matched and unmatched - announce everything, don't save
-                    announcement.append(".");
-                    TtsHelper.speak(tts, announcement.toString());
-                    saveState = SaveState.IDLE;
+                    chosenObject = unmatched.get(0);
+                    lastScanType = ScanType.OBJECT;
+                    saveState    = SaveState.ASK_SAVE;
+                    speakThenListen(announcement + ". " + getString(R.string.ask_save));
                 }
             });
         });
     }
 
-    private void announceDetectedItems(boolean hasText, boolean hasObjects) {
-        StringBuilder announcement = new StringBuilder();
+    // ── STT helpers ──────────────────────────────────────────────────────────
 
-        if (hasObjects) {
-            announcement.append("I see ");
-            for (int i = 0; i < detectedObjects.size(); i++) {
-                String translated = LabelTranslator.translate(this, detectedObjects.get(i).label);
-                announcement.append(translated);
-                if (i < detectedObjects.size() - 2) {
-                    announcement.append(", ");
-                } else if (i == detectedObjects.size() - 2) {
-                    announcement.append(" and ");
-                }
+    /**
+     * FIX: speakThenListen now always goes through TtsHelper.speakThen,
+     * which sets ttsActive=true before speaking and clears it only in onDone/onError.
+     * SharedSpeechRecognizer.listen() checks isTtsActive() and delays itself by
+     * 800 ms if TTS is still playing. The extra STT_DELAY_MS (1200 ms) on top
+     * of that gives a comfortable buffer so we never start listening while
+     * the device is still speaking.
+     */
+    private void speakThenListen(String msg) {
+        retryCount = 0;
+        TtsHelper.speakThen(tts, msg,
+                () -> handler.postDelayed(this::startListeningOnce, STT_DELAY_MS));
+    }
+
+    private void startListeningOnce() {
+        SharedSpeechRecognizer.get().listen(this, result -> {
+            if (result.success) {
+                retryCount = 0;
+                handleSpeechResult(result.text);
+            } else {
+                handleListenError(result.errorCode);
             }
-            announcement.append(". ");
-        }
+        });
+    }
 
-        if (hasText) {
-            announcement.append("There is also text. ");
-        }
+    private void handleListenError(int errorCode) {
+        boolean isSoft = errorCode == SpeechRecognizer.ERROR_NO_MATCH
+                || errorCode == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                || errorCode == SpeechRecognizer.ERROR_RECOGNIZER_BUSY
+                || errorCode == SpeechRecognizer.ERROR_CLIENT;
 
-        if (detectedObjects.size() > 1) {
-            // Multiple objects - ask which one
-            announcement.append("Which one would you like to save?");
-            saveState = SaveState.ASK_WHICH_OBJECT;
-            TtsHelper.speakThen(tts, announcement.toString(), this::startListening);
-        } else if (detectedObjects.size() == 1 && hasText) {
-            // One object + text - choose object, then ask text/object
-            chosenObject = detectedObjects.get(0);
-            announcement.append("Would you like to save the ");
-            announcement.append(LabelTranslator.translate(this, chosenObject.label));
-            announcement.append(" as text or as an object?");
-            saveState = SaveState.ASK_TEXT_OR_OBJECT;
-            TtsHelper.speakThen(tts, announcement.toString(), this::startListening);
-        } else if (detectedObjects.size() == 1) {
-            // Only one object, no text
-            chosenObject = detectedObjects.get(0);
-            lastScanType = ScanType.OBJECT;
-            String translated = LabelTranslator.translate(this, chosenObject.label);
-            TtsHelper.speakThen(tts, getString(R.string.i_see_a, translated), this::askIfSave);
+        if (isSoft && retryCount < MAX_RETRIES) {
+            retryCount++;
+            // FIX: use a plain postDelayed retry rather than re-speaking
+            // "I didn't catch that" every single retry — only speak it
+            // after all retries are exhausted.
+            handler.postDelayed(this::startListeningOnce, STT_DELAY_MS);
         } else {
-            // Only text
-            lastScanType = ScanType.TEXT;
-            TtsHelper.speakThen(tts, lastScannedText, this::askIfSave);
+            retryCount = 0;
+            TtsHelper.speakThen(tts, getString(R.string.didnt_catch),
+                    () -> handler.postDelayed(this::startListeningOnce, STT_DELAY_MS));
         }
     }
 
-    private void askIfSave() {
-        saveState = SaveState.ASK_SAVE;
-        TtsHelper.speakThen(tts, getString(R.string.ask_save), this::startListening);
-    }
-
-    private void askForName() {
-        saveState = SaveState.ASK_NAME;
-        TtsHelper.speakThen(tts, getString(R.string.ask_name_for_item), this::startListening);
-    }
-
-    private void askIfAddReminder() {
-        saveState = SaveState.ASK_REMINDER;
-        TtsHelper.speakThen(tts, getString(R.string.ask_add_reminder), this::startListening);
-    }
+    // ── Speech result handler ─────────────────────────────────────────────────
 
     private void handleSpeechResult(String spokenText) {
         String cleaned = spokenText.toLowerCase().trim();
@@ -609,57 +471,59 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
 
         switch (saveState) {
             case ASK_WHICH_OBJECT:
-                // User choosing between multiple objects
                 for (DetectedObject obj : detectedObjects) {
-                    if (cleaned.contains(obj.label.toLowerCase())) {
+                    String tr = LabelTranslator.translate(this, obj.label);
+                    if (cleaned.contains(obj.label.toLowerCase())
+                            || cleaned.contains(tr.toLowerCase())) {
                         chosenObject = obj;
-
-                        // Check if there's also text
                         if (lastScannedText != null && !lastScannedText.isEmpty()) {
                             saveState = SaveState.ASK_TEXT_OR_OBJECT;
-                            TtsHelper.speakThen(tts, "Would you like to save this as text or as an object?", this::startListening);
+                            speakThenListen(getString(R.string.ask_text_or_object));
                         } else {
                             lastScanType = ScanType.OBJECT;
-                            String translated = LabelTranslator.translate(this, chosenObject.label);
-                            TtsHelper.speakThen(tts, getString(R.string.i_see_a, translated), this::askIfSave);
+                            saveState    = SaveState.ASK_SAVE;
+                            speakThenListen(getString(R.string.ask_save));
                         }
                         return;
                     }
                 }
-                TtsHelper.speakThen(tts, "I didn't catch that. Please say which object you want.", this::startListening);
+                speakThenListen(getString(R.string.please_say_which_object));
                 break;
 
             case ASK_TEXT_OR_OBJECT:
-                if (containsAny(cleaned, "text", "texte", "words", "writing", "mots", "écriture")) {
+                if (containsAny(cleaned,
+                        "text","texte","words","writing","mots","écriture")) {
                     lastScanType = ScanType.TEXT;
-                    TtsHelper.speakThen(tts, lastScannedText, this::askIfSave);
-                } else if (containsAny(cleaned, "object", "objet", "thing", "item", "chose")) {
+                    saveState    = SaveState.ASK_SAVE;
+                    speakThenListen(lastScannedText + ". " + getString(R.string.ask_save));
+                } else if (containsAny(cleaned,
+                        "object","objet","thing","item","chose","image")) {
                     lastScanType = ScanType.OBJECT;
-                    String translated = LabelTranslator.translate(this, chosenObject.label);
-                    TtsHelper.speakThen(tts, getString(R.string.i_see_a, translated), this::askIfSave);
+                    saveState    = SaveState.ASK_SAVE;
+                    speakThenListen(getString(R.string.ask_save));
                 } else {
-                    TtsHelper.speakThen(tts, getString(R.string.please_say_text_or_object), this::startListening);
+                    speakThenListen(getString(R.string.please_say_text_or_object));
                 }
                 break;
 
             case ASK_SAVE:
                 if (TtsHelper.isYes(cleaned)) {
-                    askForName();
+                    saveState = SaveState.ASK_NAME;
+                    speakThenListen(getString(R.string.ask_name_for_item));
                 } else if (TtsHelper.isNo(cleaned)) {
                     saveState = SaveState.IDLE;
                     TtsHelper.speak(tts, getString(R.string.not_saving));
                 } else {
-                    TtsHelper.speakThen(tts, getString(R.string.please_say_yes_no), this::startListening);
+                    speakThenListen(getString(R.string.please_say_yes_no));
                 }
                 break;
 
             case ASK_NAME:
-                String chosenName = spokenText.trim();
-                if (chosenName.isEmpty()) {
-                    TtsHelper.speakThen(tts, getString(R.string.didnt_catch_name), this::startListening);
-                    return;
+                if (spokenText.trim().isEmpty()) {
+                    speakThenListen(getString(R.string.didnt_catch_name));
+                } else {
+                    saveItem(spokenText.trim());
                 }
-                saveItem(chosenName);
                 break;
 
             case ASK_REMINDER:
@@ -669,22 +533,19 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
                     saveState = SaveState.IDLE;
                     TtsHelper.speak(tts, getString(R.string.saved_as, lastSavedItemName));
                 } else {
-                    TtsHelper.speakThen(tts, getString(R.string.please_say_yes_no), this::startListening);
+                    speakThenListen(getString(R.string.please_say_yes_no));
                 }
                 break;
 
-            default: break;
+            default:
+                break;
         }
     }
 
-    private boolean containsAny(String s, String... needles) {
-        for (String n : needles) if (s.contains(n)) return true;
-        return false;
-    }
+    // ── Reminder flow ─────────────────────────────────────────────────────────
 
     private void startReminderFlow() {
         if (reminderFlow != null) reminderFlow.shutdown();
-
         reminderFlow = new ReminderVoiceFlow(this, tts, new ReminderVoiceFlow.Callbacks() {
             @Override
             public void onReminderDefined(String repeatType, long reminderTimeMs) {
@@ -699,40 +560,27 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
                 });
             }
         });
-
         reminderFlow.start();
     }
 
     private void persistAndScheduleReminder(String repeatType, long reminderTimeMs) {
-        if (lastSavedItemId < 0 || lastSavedItemName == null) {
-            Log.e(TAG, "No saved item to attach reminder to");
+        if (lastSavedItemId < 0) {
             runOnUiThread(() -> {
                 saveState = SaveState.IDLE;
                 TtsHelper.speak(tts, getString(R.string.reminder_failed));
             });
             return;
         }
-
-        final int itemIdSnapshot = lastSavedItemId;
-        final String nameSnapshot = lastSavedItemName;
-
+        final int    idSnap   = lastSavedItemId;
+        final String nameSnap = lastSavedItemName;
         Reminder r = new Reminder();
-        r.itemId = itemIdSnapshot;
-        r.repeatType = repeatType;
-        r.isActive = true;
+        r.itemId       = idSnap;
+        r.repeatType   = repeatType;
+        r.isActive     = true;
         r.reminderTime = reminderTimeMs;
-
         repository.insertReminder(r, newId -> {
-            int reminderIdInt = (int) newId;
-
-            ReminderScheduler.scheduleAt(
-                    SmartScanActivity.this,
-                    reminderIdInt,
-                    itemIdSnapshot,
-                    nameSnapshot,
-                    repeatType,
-                    reminderTimeMs);
-
+            ReminderScheduler.scheduleAt(SmartScanActivity.this,
+                    (int) newId, idSnap, nameSnap, repeatType, reminderTimeMs);
             runOnUiThread(() -> {
                 saveState = SaveState.IDLE;
                 TtsHelper.speak(tts, getString(R.string.reminder_saved));
@@ -740,59 +588,51 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
         });
     }
 
+    // ── Save item ─────────────────────────────────────────────────────────────
+
     private void saveItem(String customName) {
         long now = System.currentTimeMillis();
-
         if (lastScanType == ScanType.TEXT) {
             SavedItem item = new SavedItem();
-            item.customName = customName;
+            item.customName   = customName;
             item.detectedName = lastScannedText;
-            item.category = "text";
-            item.scanDate = now;
+            item.category     = "text";
+            item.scanDate     = now;
             item.isMedication = false;
-            item.imagePath = null;
-            item.imageFingerprint = null;
-
             backgroundExecutor.execute(() -> {
                 long newId = insertItemSync(item);
-
                 SavedNote note = new SavedNote();
                 note.extractedText = lastScannedText;
-                note.scanDate = now;
-                note.language = Locale.getDefault().toString();
-
+                note.scanDate      = now;
+                note.language      = Locale.getDefault().toString();
                 AppDatabase.getInstance(this).noteDao().insert(note);
-
                 runOnUiThread(() -> {
-                    lastSavedItemId = (int) newId;
+                    lastSavedItemId   = (int) newId;
                     lastSavedItemName = customName;
-                    TtsHelper.speakThen(tts, getString(R.string.saved_as, customName), this::askIfAddReminder);
+                    saveState         = SaveState.ASK_REMINDER;
+                    speakThenListen(getString(R.string.saved_as, customName)
+                            + ". " + getString(R.string.ask_add_reminder));
                 });
             });
-
         } else if (lastScanType == ScanType.OBJECT && chosenObject != null) {
-            final Bitmap bitmapToSave = lastCapturedBitmap;
-            final String detectedName = chosenObject.label;
-            final String fingerprint = chosenObject.fingerprint;
-
+            final Bitmap bm = lastCapturedBitmap;
             backgroundExecutor.execute(() -> {
-                String imagePath = saveBitmapToInternalStorage(bitmapToSave, now);
-
+                String imagePath = saveBitmapToInternalStorage(bm, now);
                 SavedItem item = new SavedItem();
-                item.customName = customName;
-                item.detectedName = detectedName;
-                item.category = "object";
-                item.scanDate = now;
-                item.isMedication = false;
-                item.imagePath = imagePath;
-                item.imageFingerprint = fingerprint;
-
+                item.customName        = customName;
+                item.detectedName      = chosenObject.label;
+                item.category          = "object";
+                item.scanDate          = now;
+                item.isMedication      = false;
+                item.imagePath         = imagePath;
+                item.imageFingerprint  = chosenObject.fingerprint;
                 long newId = insertItemSync(item);
-
                 runOnUiThread(() -> {
-                    lastSavedItemId = (int) newId;
+                    lastSavedItemId   = (int) newId;
                     lastSavedItemName = customName;
-                    TtsHelper.speakThen(tts, getString(R.string.saved_as, customName), this::askIfAddReminder);
+                    saveState         = SaveState.ASK_REMINDER;
+                    speakThenListen(getString(R.string.saved_as, customName)
+                            + ". " + getString(R.string.ask_add_reminder));
                 });
             });
         }
@@ -802,76 +642,78 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
         try {
             return AppDatabase.getInstance(this).itemDao().insertAndGetId(item);
         } catch (Exception e) {
-            Log.e(TAG, "insertAndGetId failed: " + e.getMessage());
+            Log.e(TAG, "insert failed: " + e.getMessage());
             return -1;
         }
     }
 
-    private String saveBitmapToInternalStorage(Bitmap bitmap, long timestamp) {
-        if (bitmap == null) return null;
-
+    private String saveBitmapToInternalStorage(Bitmap bm, long ts) {
+        if (bm == null) return null;
         try {
             File dir = new File(getFilesDir(), "saved_images");
             if (!dir.exists()) dir.mkdirs();
-
-            File file = new File(dir, "img_" + timestamp + ".jpg");
-            FileOutputStream fos = new FileOutputStream(file);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+            File f = new File(dir, "img_" + ts + ".jpg");
+            FileOutputStream fos = new FileOutputStream(f);
+            bm.compress(Bitmap.CompressFormat.JPEG, 90, fos);
             fos.flush();
             fos.close();
-
-            return file.getAbsolutePath();
+            return f.getAbsolutePath();
         } catch (Exception e) {
-            Log.e(TAG, "Failed to save bitmap: " + e.getMessage());
             return null;
         }
     }
 
-    private Bitmap imageProxyToBitmap(ImageProxy image) {
-        try {
-            java.nio.ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-            byte[] bytes = new byte[buffer.remaining()];
-            buffer.get(bytes);
-            return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-        } catch (Exception e) { return null; }
+    // ── Utilities ─────────────────────────────────────────────────────────────
+
+    private boolean containsAny(String s, String... needles) {
+        for (String n : needles) if (s.contains(n)) return true;
+        return false;
     }
 
-    private Bitmap rotateBitmap(Bitmap bitmap, int rotation) {
-        if (bitmap == null) return null;
-        if (rotation == 0) return bitmap;
+    private Bitmap imageProxyToBitmap(ImageProxy image) {
+        try {
+            java.nio.ByteBuffer buf = image.getPlanes()[0].getBuffer();
+            byte[] b = new byte[buf.remaining()];
+            buf.get(b);
+            return BitmapFactory.decodeByteArray(b, 0, b.length);
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
-        Matrix matrix = new Matrix();
-        matrix.postRotate(rotation);
-        return Bitmap.createBitmap(bitmap, 0, 0,
-                bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+    private Bitmap rotateBitmap(Bitmap bm, int deg) {
+        if (bm == null || deg == 0) return bm;
+        Matrix m = new Matrix();
+        m.postRotate(deg);
+        return Bitmap.createBitmap(bm, 0, 0, bm.getWidth(), bm.getHeight(), m, true);
     }
 
     private void vibrate() {
-        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        if (vibrator == null) return;
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
-            vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE));
-        else vibrator.vibrate(200);
+        Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        if (v == null) return;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            v.vibrate(VibrationEffect.createOneShot(
+                    200, VibrationEffect.DEFAULT_AMPLITUDE));
+        } else {
+            v.vibrate(200);
+        }
     }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Override
     protected void onPause() {
         super.onPause();
+        SharedSpeechRecognizer.get().cancel();
         if (reminderFlow != null) {
             reminderFlow.shutdown();
             reminderFlow = null;
-        }
-        if (speechRecognizer != null && isListening) {
-            speechRecognizer.stopListening();
-            isListening = false;
         }
     }
 
     @Override
     protected void onDestroy() {
         if (tts != null) { tts.stop(); tts.shutdown(); }
-        if (speechRecognizer != null) speechRecognizer.destroy();
         if (objectDetector != null) objectDetector.close();
         if (fingerprintExtractor != null) fingerprintExtractor.close();
         if (reminderFlow != null) reminderFlow.shutdown();
