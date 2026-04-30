@@ -13,6 +13,4 @@ public class SavedNote {
     public long scanDate;
     public String language;
 
-    // REMOVED: customName (never populated)
-    // REMOVED: scanType (never populated)
 }
