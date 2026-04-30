@@ -10,8 +10,6 @@ import java.util.List;
 public class ItemMatcher {
 
     private static final String TAG = "ItemMatcher";
-
-    // LOWERED threshold - 60% match is enough for angle variations
     private static final float IMAGE_SIMILARITY_THRESHOLD = 0.55f;
 
     private final Context context;
@@ -22,9 +20,6 @@ public class ItemMatcher {
         this.extractor = extractor;
     }
 
-    /**
-     * Check if scanned text matches any saved item.
-     */
     public SavedItem matchText(String scannedText) {
         Log.d(TAG, "========================================");
         Log.d(TAG, "TEXT MATCH ATTEMPT");
@@ -64,10 +59,6 @@ public class ItemMatcher {
         return null;
     }
 
-    /**
-     * Check if scanned object matches any saved object.
-     * Now with lower threshold to handle angle variations.
-     */
     public SavedItem matchObject(Bitmap croppedObject, String detectedLabel) {
         Log.d(TAG, "========================================");
         Log.d(TAG, "OBJECT MATCH ATTEMPT");
@@ -111,7 +102,6 @@ public class ItemMatcher {
                 continue;
             }
 
-            // Label must match
             if (item.detectedName != null
                     && !item.detectedName.equalsIgnoreCase(detectedLabel)) {
                 Log.d(TAG, "  Item \"" + item.customName + "\": ❌ label mismatch (saved=\"" +
@@ -150,9 +140,6 @@ public class ItemMatcher {
         }
     }
 
-    /**
-     * Crop a bitmap to a bounding box.
-     */
     public static Bitmap cropToBoundingBox(Bitmap source, Rect box) {
         if (source == null || box == null) return source;
 
@@ -168,9 +155,6 @@ public class ItemMatcher {
         return Bitmap.createBitmap(source, left, top, width, height);
     }
 
-    /**
-     * Normalize text for comparison.
-     */
     private String normalize(String s) {
         return s.toLowerCase()
                 .replaceAll("\\s+", " ")
