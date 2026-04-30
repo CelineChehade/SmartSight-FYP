@@ -37,7 +37,10 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
     private static final long HOLD_DURATION_MS = 2000;
 
     public SavedItemsAdapter(Context context, OnItemActionListener listener) {
-        this.context = context.getApplicationContext();
+        // FIX: wrap the context with LocaleManager so that getString() returns
+        // strings in the correct language (French or English) instead of always
+        // using the system default language.
+        this.context  = LocaleManager.wrap(context.getApplicationContext());
         this.listener = listener;
     }
 
@@ -60,6 +63,7 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
 
         h.txtCustomName.setText(item.customName != null ? item.customName : "");
 
+        // FIX: getString now uses the locale-wrapped context → returns French strings
         String categoryLabel;
         if ("text".equalsIgnoreCase(item.category)) {
             categoryLabel = context.getString(R.string.this_is_text_note);
@@ -74,9 +78,11 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
             h.txtDetected.setText("\"" +
                     (item.detectedName != null ? item.detectedName : "") + "\"");
         } else {
+            // LabelTranslator already translates the label to French when lang=fr
             String translated = item.detectedName != null
                     ? LabelTranslator.translate(context, item.detectedName)
                     : "";
+            // FIX: "Detected as" → "Détecté comme" via locale-wrapped context
             h.txtDetected.setText(context.getString(R.string.detected_as, translated));
         }
 
@@ -91,6 +97,7 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
             h.imgThumbnail.setImageResource(android.R.drawable.ic_menu_edit);
         }
 
+        // Hold detection
         final Handler holdHandler = new Handler(Looper.getMainLooper());
         final boolean[] holdTriggered = {false};
 
@@ -133,15 +140,15 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
 
     static class ItemHolder extends RecyclerView.ViewHolder {
         ImageView imgThumbnail;
-        TextView txtCustomName, txtCategory, txtDate, txtDetected;
+        TextView  txtCustomName, txtCategory, txtDate, txtDetected;
 
         ItemHolder(@NonNull View v) {
             super(v);
-            imgThumbnail = v.findViewById(R.id.imgThumbnail);
+            imgThumbnail  = v.findViewById(R.id.imgThumbnail);
             txtCustomName = v.findViewById(R.id.txtCustomName);
-            txtCategory = v.findViewById(R.id.txtCategory);
-            txtDate = v.findViewById(R.id.txtDate);
-            txtDetected = v.findViewById(R.id.txtDetected);
+            txtCategory   = v.findViewById(R.id.txtCategory);
+            txtDate       = v.findViewById(R.id.txtDate);
+            txtDetected   = v.findViewById(R.id.txtDetected);
         }
     }
 }
