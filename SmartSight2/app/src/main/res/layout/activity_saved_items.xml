@@ -1,4 +1,9 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/backgroundColor">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/backgroundColor">
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -9,11 +14,14 @@
         android:padding="16dp"
         android:focusable="false"
         android:importantForAccessibility="no"/>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerSavedItems"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="8dp"
         android:clipToPadding="false"
+        android:importantForAccessibility="yes"
         android:descendantFocusability="afterDescendants"/>
+
 </LinearLayout>
