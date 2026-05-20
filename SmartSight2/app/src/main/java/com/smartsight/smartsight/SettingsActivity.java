@@ -75,18 +75,20 @@ public class SettingsActivity extends BaseActivity implements TextToSpeech.OnIni
             TalkBackSilencer.silence(this, tts);
             TalkBackSilencer.addFocusSpeech(
                     findViewById(R.id.btnChangeName),
-                    getString(R.string.btn_change_name), tts);
+                    getString(R.string.btn_change_name), tts, this);
             TalkBackSilencer.addFocusSpeech(
                     findViewById(R.id.btnLanguage),
-                    getString(R.string.btn_language), tts);
+                    getString(R.string.btn_language), tts, this);
             TalkBackSilencer.addFocusSpeech(
                     findViewById(R.id.btnVoiceSpeed),
-                    getString(R.string.btn_voice_speed), tts);
+                    getString(R.string.btn_voice_speed), tts, this);
             TalkBackSilencer.addFocusSpeech(
                     findViewById(R.id.btnResetData),
-                    getString(R.string.btn_reset_data), tts);
-            // Speak greeting and immediately start listening for voice commands
-            speakThenListen(getString(R.string.settings_greeting));
+                    getString(R.string.btn_reset_data), tts, this);
+            if ("fr".equals(SettingsPrefs.getLanguage(this))
+                    || !AccessibilityUtils.isTalkBackEnabled(this)) {
+                speakThenListen(getString(R.string.settings_greeting));
+            }
         }
     }
 
@@ -107,7 +109,12 @@ public class SettingsActivity extends BaseActivity implements TextToSpeech.OnIni
         SharedSpeechRecognizer.get().listen(this, result -> {
             if (result.success) {
                 retryCount = 0;
-                handleSpeechResult(result.text);
+                // Name capture needs the top result; command states join all
+                // hypotheses to catch one-syllable words in lower-confidence results.
+                String text = (state == State.CHANGE_NAME_ASK)
+                        ? result.text
+                        : String.join(" ", result.allResults);
+                handleSpeechResult(text);
             } else {
                 handleListenError(result.errorCode);
             }
