@@ -32,13 +32,14 @@ public class ReminderReceiver extends BroadcastReceiver {
         Log.d(TAG, "Alarm fired: reminderId=" + reminderId
                 + " item=" + itemName + " repeat=" + repeatType);
 
-        if (reminderId < 0 || itemName == null) {
+        if (reminderId < 0) {
             Log.w(TAG, "Invalid alarm payload, ignoring.");
             return;
         }
+        final String displayName = (itemName != null && !itemName.isEmpty()) ? itemName : "item";
 
-        NotificationHelper.showReminder(context, reminderId, itemName);
-        speakReminder(context, itemName);
+        NotificationHelper.showReminder(context, reminderId, displayName);
+        speakReminder(context, displayName);
 
         if (repeatType == null || "ONCE".equalsIgnoreCase(repeatType)) {
             Executors.newSingleThreadExecutor().execute(() -> {
@@ -59,7 +60,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         long nextFire = computeNextFire(fireTime, repeatType);
         if (nextFire > 0) {
             ReminderScheduler.scheduleAt(
-                    context, reminderId, itemId, itemName, repeatType, nextFire);
+                    context, reminderId, itemId, displayName, repeatType, nextFire);
 
             Executors.newSingleThreadExecutor().execute(() -> {
                 try {
