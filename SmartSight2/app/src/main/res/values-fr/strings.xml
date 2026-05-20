@@ -8,15 +8,23 @@
     <string name="smart_scan_button">Scan Intelligent</string>
     <string name="saved_items_button">Éléments Sauvegardés</string>
     <string name="settings_button">Paramètres</string>
-    <string name="main_menu_ready">Menu principal prêt. Dites Scan Intelligent, Éléments Sauvegardés ou Paramètres.</string>
+    <!-- FIX: Do not instruct the user to say button names — home buttons are
+         touch/TalkBack-only, not voice-triggered. -->
+    <string name="main_menu_ready">Menu principal prêt.</string>
+
+    <!--  TalkBack accessibility  -->
+    <!-- FIX: Spoken after button name when TalkBack focuses a button, e.g. "Scan Intelligent bouton." -->
+    <string name="talkback_button_suffix">bouton.</string>
 
     <!--  Onboarding  -->
+    <!-- ask_name intentionally keeps "après le bip" — it is the only prompt
+         where a beep sound actually plays before recording starts. -->
     <string name="ask_name">Veuillez dire votre nom complet après le bip.</string>
-    <string name="confirm_name">Vous avez dit %1$s. Est-ce correct ? Dites oui ou non après le bip.</string>
+    <string name="confirm_name">Vous avez dit %1$s. Est-ce correct ? Dites oui ou non.</string>
     <string name="try_again">Essayons encore.</string>
     <string name="mic_permission_required">La permission du microphone est requise pour le contrôle vocal.</string>
-    <string name="please_answer_yes_no">Veuillez dire oui ou non après le bip.</string>
-    <string name="didnt_catch">Je n\'ai pas compris. Veuillez réessayer après le bip.</string>
+    <string name="please_answer_yes_no">Veuillez dire oui ou non.</string>
+    <string name="didnt_catch">Je n\'ai pas compris. Veuillez réessayer.</string>
 
     <!--  Permission denied  -->
     <string name="permission_mic_denied_go_to_settings">L\'accès au microphone est requis pour que SmartSight fonctionne. Veuillez aller dans les Paramètres et activer la permission Microphone pour cette application.</string>
@@ -43,12 +51,12 @@
     <string name="instruction_talkback_scan">Scan Intelligent prêt. Appuyez sur le bouton de scan pour capturer une image.</string>
 
     <!--  Save flow  -->
-    <string name="ask_save">Voulez-vous sauvegarder ceci ? Dites oui ou non après le bip.</string>
-    <string name="ask_name_for_item">Quel nom souhaitez-vous lui donner ? Parlez après le bip.</string>
-    <string name="please_say_yes_no">Veuillez dire oui ou non après le bip.</string>
+    <string name="ask_save">Voulez-vous sauvegarder ceci ? Dites oui ou non.</string>
+    <string name="ask_name_for_item">Quel nom souhaitez-vous lui donner ? Parlez maintenant.</string>
+    <string name="please_say_yes_no">Veuillez dire oui ou non.</string>
     <string name="not_saving">D\'accord, je ne sauvegarde pas.</string>
     <string name="saved_as">Sauvegardé sous %1$s.</string>
-    <string name="didnt_catch_name">Je n\'ai pas saisi le nom. Veuillez le redire après le bip.</string>
+    <string name="didnt_catch_name">Je n\'ai pas saisi le nom. Veuillez le redire.</string>
 
     <!--  Saved Items  -->
     <string name="saved_scans_title">Mes Éléments Sauvegardés</string>
@@ -64,38 +72,38 @@
     <string name="btn_delete_description">Supprimer cet élément</string>
 
     <!--  VoiceEditManager  -->
-    <string name="vem_ask_action">Que voulez-vous faire ? Dites supprimer ou renommer après le bip.</string>
-    <string name="vem_please_delete_or_rename">Veuillez dire supprimer ou renommer après le bip.</string>
-    <string name="vem_confirm_delete">Êtes-vous sûr de vouloir supprimer %1$s ? Dites oui ou non après le bip.</string>
-    <string name="vem_ask_new_name">Quel est le nouveau nom ? Parlez après le bip.</string>
-    <string name="vem_confirm_new_name">J\'ai entendu %1$s. Est-ce correct ? Dites oui ou non après le bip.</string>
+    <string name="vem_ask_action">Que voulez-vous faire ? Dites supprimer ou renommer.</string>
+    <string name="vem_please_delete_or_rename">Veuillez dire supprimer ou renommer.</string>
+    <string name="vem_confirm_delete">Êtes-vous sûr de vouloir supprimer %1$s ? Dites oui ou non.</string>
+    <string name="vem_ask_new_name">Quel est le nouveau nom ? Parlez maintenant.</string>
+    <string name="vem_confirm_new_name">J\'ai entendu %1$s. Est-ce correct ? Dites oui ou non.</string>
     <string name="vem_deleted">Supprimé.</string>
     <string name="vem_renamed_to">Renommé en %1$s.</string>
     <string name="vem_cancelled">Annulé.</string>
-    <string name="vem_ask_action_no_reminder">Que voulez-vous faire ? Dites renommer, ajouter un rappel, ou supprimer après le bip.</string>
-    <string name="vem_ask_action_with_reminder">Que voulez-vous faire ? Dites renommer, modifier le rappel, supprimer le rappel, ou supprimer après le bip.</string>
+    <string name="vem_ask_action_no_reminder">Que voulez-vous faire ? Dites renommer, ajouter un rappel, ou supprimer.</string>
+    <string name="vem_ask_action_with_reminder">Que voulez-vous faire ? Dites renommer, modifier le rappel, supprimer le rappel, ou supprimer.</string>
 
     <!--  Settings  -->
     <string name="settings_title">Paramètres</string>
-    <string name="settings_greeting">Paramètres. Dites l\'une de ces options après le bip : changer le nom, langue, vitesse vocale, ou réinitialiser toutes les données.</string>
+    <string name="settings_greeting">Paramètres. Dites l\'une de ces options : changer le nom, langue, vitesse vocale, ou réinitialiser toutes les données.</string>
     <string name="settings_status_default">Dites une commande ou appuyez sur un bouton ci-dessous.</string>
-    <string name="settings_return_to_menu">%1$s Dites une autre commande après le bip, ou appuyez sur retour.</string>
-    <string name="settings_please_say_commands">Veuillez dire l\'une des options suivantes après le bip : changer le nom, langue, vitesse vocale, ou réinitialiser toutes les données.</string>
-    <string name="please_say_yes_no_settings">Veuillez dire oui ou non après le bip.</string>
+    <string name="settings_return_to_menu">%1$s Dites une autre commande, ou appuyez sur retour.</string>
+    <string name="settings_please_say_commands">Veuillez dire l\'une des options suivantes : changer le nom, langue, vitesse vocale, ou réinitialiser toutes les données.</string>
+    <string name="please_say_yes_no_settings">Veuillez dire oui ou non.</string>
 
     <!--  Change name  -->
     <string name="btn_change_name">Changer le Nom</string>
     <string name="btn_change_name_description">Changer le nom d\'utilisateur.</string>
-    <string name="settings_ask_new_name">Quel est votre nouveau nom ? Parlez après le bip.</string>
-    <string name="settings_confirm_new_name">J\'ai entendu %1$s. Est-ce correct ? Dites oui ou non après le bip.</string>
-    <string name="settings_retry_name">Réessayons. Quel est votre nouveau nom ? Parlez après le bip.</string>
+    <string name="settings_ask_new_name">Quel est votre nouveau nom ? Parlez maintenant.</string>
+    <string name="settings_confirm_new_name">J\'ai entendu %1$s. Est-ce correct ? Dites oui ou non.</string>
+    <string name="settings_retry_name">Réessayons. Quel est votre nouveau nom ? Parlez maintenant.</string>
     <string name="settings_name_updated">Nom mis à jour en %1$s.</string>
 
     <!--  Language  -->
     <string name="btn_language">Langue</string>
     <string name="btn_language_description">Changer la langue de l\'application.</string>
-    <string name="settings_ask_language">Dites la langue après le bip. Anglais ou Français.</string>
-    <string name="settings_please_say_language">Veuillez dire Anglais ou Français après le bip.</string>
+    <string name="settings_ask_language">Dites la langue. Anglais ou Français.</string>
+    <string name="settings_please_say_language">Veuillez dire Anglais ou Français.</string>
     <string name="settings_language_set">Langue définie sur %1$s. L\'application va redémarrer.</string>
     <string name="lang_english">Anglais</string>
     <string name="lang_french">Français</string>
@@ -104,14 +112,14 @@
     <string name="btn_voice_speed">Vitesse Vocale</string>
     <string name="btn_voice_speed_description">Ajuster la vitesse vocale.</string>
     <string name="speed_test_phrase">Le renard brun rapide saute par-dessus le chien paresseux.</string>
-    <string name="speed_prompt">Dites plus vite, plus lentement, ou bien après le bip.</string>
+    <string name="speed_prompt">Dites plus vite, plus lentement, ou bien.</string>
     <string name="speed_saved">Vitesse vocale sauvegardée.</string>
-    <string name="please_say_speed">Veuillez dire plus vite, plus lentement, ou bien après le bip.</string>
+    <string name="please_say_speed">Veuillez dire plus vite, plus lentement, ou bien.</string>
 
     <!--  Reset data  -->
     <string name="btn_reset_data">Réinitialiser Toutes les Données</string>
     <string name="btn_reset_data_description">Réinitialiser toutes les données sauvegardées.</string>
-    <string name="reset_confirm">Ceci supprimera tous vos éléments sauvegardés, notes et paramètres. Êtes-vous sûr ? Dites oui ou non après le bip.</string>
+    <string name="reset_confirm">Ceci supprimera tous vos éléments sauvegardés, notes et paramètres. Êtes-vous sûr ? Dites oui ou non.</string>
     <string name="reset_done">Toutes les données ont été supprimées. L\'application va redémarrer.</string>
     <string name="reset_cancelled">Réinitialisation annulée.</string>
 
@@ -121,22 +129,22 @@
     <string name="reminder_notification_message">Rappel : %1$s</string>
 
     <!--  Reminder voice flow  -->
-    <string name="reminder_ask_frequency">À quelle fréquence dois-je vous rappeler ? Dites une fois, quotidien, hebdomadaire, mensuel ou annuel après le bip.</string>
-    <string name="reminder_ask_year">Quelle année ? Dites l\'année ou dites cette année ou l\'année prochaine après le bip.</string>
-    <string name="reminder_ask_month">Quel mois ? Dites le numéro du mois de 1 à 12, ou le nom du mois après le bip.</string>
-    <string name="reminder_ask_day">Quel jour ? Dites le numéro du jour de 1 à 31, ou dites aujourd\'hui ou demain après le bip.</string>
-    <string name="reminder_ask_hour">À quelle heure ? Dites un nombre de 1 à 12 après le bip.</string>
-    <string name="reminder_ask_minute">À quelle minute ? Dites un nombre de 0 à 59, ou dites pile pour zéro après le bip.</string>
-    <string name="reminder_ask_ampm">Est-ce le matin ou le soir ? Dites matin ou soir après le bip.</string>
-    <string name="reminder_confirm">%1$s. Est-ce correct ? Dites oui ou non après le bip.</string>
+    <string name="reminder_ask_frequency">À quelle fréquence dois-je vous rappeler ? Dites une fois, quotidien, hebdomadaire, mensuel ou annuel.</string>
+    <string name="reminder_ask_year">Quelle année ? Dites l\'année ou dites cette année ou l\'année prochaine.</string>
+    <string name="reminder_ask_month">Quel mois ? Dites le numéro du mois de 1 à 12, ou le nom du mois.</string>
+    <string name="reminder_ask_day">Quel jour ? Dites le numéro du jour de 1 à 31, ou dites aujourd\'hui ou demain.</string>
+    <string name="reminder_ask_hour">À quelle heure ? Dites un nombre de 1 à 12.</string>
+    <string name="reminder_ask_minute">À quelle minute ? Dites un nombre de 0 à 59, ou dites pile pour zéro.</string>
+    <string name="reminder_ask_ampm">Est-ce le matin ou le soir ? Dites matin ou soir.</string>
+    <string name="reminder_confirm">%1$s. Est-ce correct ? Dites oui ou non.</string>
     <string name="reminder_summary_format">Je vous rappellerai %1$s à %2$d:%3$02d %4$s le %5$04d-%6$02d-%7$02d.</string>
-    <string name="reminder_please_say_frequency">Veuillez dire une fois, quotidien, hebdomadaire, mensuel ou annuel après le bip.</string>
-    <string name="reminder_please_say_year">Je n\'ai pas compris. Veuillez dire l\'année après le bip.</string>
-    <string name="reminder_please_say_month">Je n\'ai pas compris. Veuillez dire le numéro ou le nom du mois après le bip.</string>
-    <string name="reminder_please_say_day">Je n\'ai pas compris. Veuillez dire le numéro du jour, aujourd\'hui ou demain après le bip.</string>
-    <string name="reminder_please_say_hour">Veuillez dire un nombre de 1 à 12 après le bip.</string>
-    <string name="reminder_please_say_minute">Veuillez dire un nombre de 0 à 59, ou dire pile après le bip.</string>
-    <string name="reminder_please_say_ampm">Veuillez dire matin ou soir après le bip.</string>
+    <string name="reminder_please_say_frequency">Veuillez dire une fois, quotidien, hebdomadaire, mensuel ou annuel.</string>
+    <string name="reminder_please_say_year">Je n\'ai pas compris. Veuillez dire l\'année.</string>
+    <string name="reminder_please_say_month">Je n\'ai pas compris. Veuillez dire le numéro ou le nom du mois.</string>
+    <string name="reminder_please_say_day">Je n\'ai pas compris. Veuillez dire le numéro du jour, aujourd\'hui ou demain.</string>
+    <string name="reminder_please_say_hour">Veuillez dire un nombre de 1 à 12.</string>
+    <string name="reminder_please_say_minute">Veuillez dire un nombre de 0 à 59, ou dire pile.</string>
+    <string name="reminder_please_say_ampm">Veuillez dire matin ou soir.</string>
     <string name="reminder_restart">Recommençons depuis le début.</string>
     <string name="reminder_saved">Rappel sauvegardé.</string>
     <string name="reminder_removed">Rappel supprimé.</string>
@@ -154,14 +162,14 @@
     <string name="ampm_pm">PM</string>
 
     <!--  Reminder save flow  -->
-    <string name="ask_add_reminder">Voulez-vous ajouter un rappel pour cet élément ? Dites oui ou non après le bip.</string>
+    <string name="ask_add_reminder">Voulez-vous ajouter un rappel pour cet élément ? Dites oui ou non.</string>
 
     <!--  Multiple objects  -->
-    <string name="ask_which_object">Quel objet souhaitez-vous sauvegarder ? Parlez après le bip.</string>
-    <string name="please_say_which_object">Je n\'ai pas compris. Veuillez dire quel objet vous voulez après le bip.</string>
-    <string name="ask_text_or_object">Dites texte ou objet après le bip.</string>
-    <string name="please_say_text_or_object">Je n\'ai pas compris. Veuillez dire texte ou objet après le bip.</string>
-    <string name="found_both_text_and_object">J\'ai trouvé du texte qui dit : %1$s. J\'ai aussi détecté un objet : %2$s. Que souhaitez-vous sauvegarder ? Dites texte ou objet après le bip.</string>
+    <string name="ask_which_object">Quel objet souhaitez-vous sauvegarder ? Parlez maintenant.</string>
+    <string name="please_say_which_object">Je n\'ai pas compris. Veuillez dire quel objet vous voulez.</string>
+    <string name="ask_text_or_object">Dites texte ou objet.</string>
+    <string name="please_say_text_or_object">Je n\'ai pas compris. Veuillez dire texte ou objet.</string>
+    <string name="found_both_text_and_object">J\'ai trouvé du texte qui dit : %1$s. J\'ai aussi détecté un objet : %2$s. Que souhaitez-vous sauvegarder ? Dites texte ou objet.</string>
 
     <!--  Conjunction  -->
     <string name="i_see_prefix">Je vois </string>
