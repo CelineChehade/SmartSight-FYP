@@ -40,16 +40,17 @@ public class BootReceiver extends BroadcastReceiver {
                         continue;
                     }
 
+                    String itemName = item.customName != null ? item.customName : "";
                     ReminderScheduler.scheduleAt(
                             context,
                             r.reminderId,
                             r.itemId,
-                            item.customName,
+                            itemName,
                             r.repeatType,
                             r.reminderTime);
 
                     Log.d(TAG, "Re-scheduled reminder " + r.reminderId
-                            + " for " + item.customName);
+                            + " for " + itemName);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Failed to re-schedule reminders: " + e.getMessage());
