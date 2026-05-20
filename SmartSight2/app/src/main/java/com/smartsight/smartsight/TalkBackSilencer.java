@@ -1,106 +1,53 @@
 package com.example.smartsight;
 
 import android.app.Activity;
+import android.content.Context;
 import android.speech.tts.TextToSpeech;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-/**
- * Silences TalkBack completely for an Activity while keeping swipe
- * navigation and focus ring working.
- *
- * STRATEGY
- * =========
- * 1. Override dispatchPopulateAccessibilityEvent() in the Activity to
- *    return true without adding any text → TalkBack gets empty events.
- *
- * 2. Set an AccessibilityDelegate on every view that:
- *    - Clears all text from every AccessibilityEvent before dispatch
- *    - Returns empty AccessibilityNodeInfo text/description
- *    This covers views that generate their own events independently.
- *
- * 3. For interactive views (buttons), register an onFocusChangeListener
- *    so our own TTS speaks the correct label when TalkBack focuses them.
- *
- * HOW TO USE
- * ===========
- * Step 1 — In your Activity, override dispatchPopulateAccessibilityEvent:
- *
- *   @Override
- *   public boolean dispatchPopulateAccessibilityEvent(AccessibilityEvent event) {
- *       if (AccessibilityUtils.isTalkBackEnabled(this)) {
- *           event.getText().clear();
- *           event.setContentDescription("");
- *           return true;   // consumed — TalkBack gets nothing to speak
- *       }
- *       return super.dispatchPopulateAccessibilityEvent(event);
- *   }
- *
- * Step 2 — After setContentView(), call:
- *   TalkBackSilencer.silence(this, tts);
- *
- * Step 3 — For buttons you want spoken in the correct language, call:
- *   TalkBackSilencer.addFocusSpeech(button, "Label to speak", tts);
- */
 public class TalkBackSilencer {
 
-    /**
-     * Silence all views in this activity.
-     * Call after setContentView() and after any views become VISIBLE.
-     */
     public static void silence(Activity activity, TextToSpeech tts) {
-        View root = activity.getWindow().getDecorView();
-        silenceTree(root, tts);
+        if (!"fr".equals(SettingsPrefs.getLanguage(activity.getApplicationContext()))) return;
+        silenceTree(activity.getWindow().getDecorView());
     }
 
-    private static void silenceTree(View v, TextToSpeech tts) {
-        applyDelegate(v);
+    private static void silenceTree(View v) {
+        applySilenceDelegate(v);
         if (v instanceof ViewGroup) {
             ViewGroup g = (ViewGroup) v;
             for (int i = 0; i < g.getChildCount(); i++) {
-                silenceTree(g.getChildAt(i), tts);
+                silenceTree(g.getChildAt(i));
             }
         }
     }
 
-    private static void applyDelegate(View v) {
+    private static void applySilenceDelegate(View v) {
         v.setAccessibilityDelegate(new View.AccessibilityDelegate() {
-
             @Override
-            public void onInitializeAccessibilityNodeInfo(View host,
-                                                          AccessibilityNodeInfo info) {
+            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
                 super.onInitializeAccessibilityNodeInfo(host, info);
-                // Wipe every text field TalkBack might read
                 info.setContentDescription("");
                 info.setText("");
                 info.setHintText("");
                 info.setTooltipText("");
                 info.setStateDescription("");
+                info.setLabeledBy(null);
+                // Suppress TalkBack's role announcement ("button", "bouton", etc.)
+                info.setClassName(View.class.getName());
             }
 
             @Override
-            public void onPopulateAccessibilityEvent(View host,
-                                                     AccessibilityEvent event) {
-                // Do NOT call super — prevents the view adding its own text
+            public void onPopulateAccessibilityEvent(View host, AccessibilityEvent event) {
                 event.getText().clear();
                 event.setContentDescription("");
             }
 
             @Override
-            public void sendAccessibilityEvent(View host, int eventType) {
-                // Still send the event so TalkBack can track focus,
-                // but strip all text first
-                AccessibilityEvent e = AccessibilityEvent.obtain(eventType);
-                e.getText().clear();
-                e.setContentDescription("");
-                super.sendAccessibilityEvent(host, eventType);
-            }
-
-            @Override
-            public void sendAccessibilityEventUnchecked(View host,
-                                                        AccessibilityEvent event) {
+            public void sendAccessibilityEventUnchecked(View host, AccessibilityEvent event) {
                 event.getText().clear();
                 event.setContentDescription("");
                 super.sendAccessibilityEventUnchecked(host, event);
@@ -109,15 +56,70 @@ public class TalkBackSilencer {
     }
 
     /**
-     * Make TalkBack focus on this view speak `label` via our TTS
-     * instead of the system default.
-     * Call AFTER silence() so the focus listener isn't wiped.
+     * Call AFTER silence() for each interactive view.
+     *
+     * When context is non-null (buttons): speaks "[label] button." / "[label] bouton."
+     * using the localised talkback_button_suffix string.
+     *
+     * When context is null (list rows, non-buttons): speaks label as-is, no suffix.
      */
     public static void addFocusSpeech(View view, String label,
-                                      TextToSpeech tts) {
-        view.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus && tts != null) {
-                TtsHelper.speak(tts, label);
+                                      TextToSpeech tts, Context context) {
+        // Always resolve via getApplicationContext() so the language pref is read
+        // from the real app prefs, not a createConfigurationContext() wrapper that
+        // may not delegate SharedPreferences correctly on all Android versions.
+        Context checkCtx = context != null
+                ? context.getApplicationContext()
+                : view.getContext().getApplicationContext();
+        if (!"fr".equals(SettingsPrefs.getLanguage(checkCtx))) return;
+
+        final String spoken = (context != null)
+                ? label + " " + context.getString(R.string.talkback_button_suffix)
+                : label;
+
+        view.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                info.setContentDescription("");
+                info.setText("");
+                // Space (not empty) so TalkBack uses this literal hint instead of
+                // generating "double tap to activate" from the click action.
+                info.setHintText(" ");
+                info.setTooltipText("");
+                info.setStateDescription("");
+                info.setLabeledBy(null);
+                // className=View suppresses TalkBack's "Button" / "bouton" role announcement.
+                // Clickable flags are intentionally left as-is (set by super) so TalkBack's
+                // double-tap and double-tap-and-hold dispatch continue to work.
+                info.setClassName(View.class.getName());
+            }
+
+            @Override
+            public void onPopulateAccessibilityEvent(View host, AccessibilityEvent event) {
+                event.getText().clear();
+                event.setContentDescription("");
+            }
+
+            @Override
+            public void sendAccessibilityEvent(View host, int eventType) {
+                if (eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED) {
+                    // Only speak when nothing else is playing so startup auto-focus
+                    // does not cut off the greeting mid-sentence.
+                    if (tts != null && !TtsHelper.isTtsActive()) {
+                        TtsHelper.speak(tts, spoken);
+                    }
+                    // Always call super so TalkBack records focus — required for
+                    // double-tap and double-tap-and-hold activation.
+                }
+                super.sendAccessibilityEvent(host, eventType);
+            }
+
+            @Override
+            public void sendAccessibilityEventUnchecked(View host, AccessibilityEvent event) {
+                event.getText().clear();
+                event.setContentDescription("");
+                super.sendAccessibilityEventUnchecked(host, event);
             }
         });
     }
