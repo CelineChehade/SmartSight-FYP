@@ -40,6 +40,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/smart_scan_button"
+            android:contentDescription="@string/smart_scan_button"
             android:textSize="24sp"
             android:padding="24dp"
             android:backgroundTint="@color/primaryButtonColor"
@@ -47,6 +48,7 @@
             android:visibility="gone"
             android:focusable="true"
             android:clickable="true"
+            android:accessibilityLiveRegion="none"
             android:layout_marginBottom="32dp"/>
 
         <Button
@@ -54,6 +56,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/saved_items_button"
+            android:contentDescription="@string/saved_items_button"
             android:textSize="24sp"
             android:padding="24dp"
             android:backgroundTint="@color/secondaryButtonColor"
@@ -61,6 +64,7 @@
             android:visibility="gone"
             android:focusable="true"
             android:clickable="true"
+            android:accessibilityLiveRegion="none"
             android:layout_marginBottom="32dp"/>
 
         <Button
@@ -68,13 +72,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/settings_button"
+            android:contentDescription="@string/settings_button"
             android:textSize="24sp"
             android:padding="24dp"
             android:backgroundTint="@color/tertiaryButtonColor"
             android:textColor="@color/buttonTextColor"
             android:visibility="gone"
             android:focusable="true"
+            android:accessibilityLiveRegion="none"
             android:clickable="true"/>
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
