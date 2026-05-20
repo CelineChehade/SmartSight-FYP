@@ -3,6 +3,8 @@ package com.example.smartsight;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.Locale;
+
 public class SettingsPrefs {
 
     private static final String PREFS_NAME = "SmartSightSettings";
@@ -16,6 +18,12 @@ public class SettingsPrefs {
 
     public static String getLanguage(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (!prefs.contains(KEY_LANGUAGE)) {
+            String systemLang = Locale.getDefault().getLanguage();
+            String detected = "fr".equals(systemLang) ? "fr" : "en";
+            prefs.edit().putString(KEY_LANGUAGE, detected).apply();
+            return detected;
+        }
         return prefs.getString(KEY_LANGUAGE, "en");
     }
 
