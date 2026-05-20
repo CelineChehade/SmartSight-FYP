@@ -1,4 +1,8 @@
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/backgroundColor">
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/backgroundColor">
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -18,54 +22,63 @@
 
         <TextView
             android:id="@+id/txtStatus"
-            android:layout_width="match_parent" 
-            android:layout_height="wrap_content" 
-            android:text="@string/settings_status_default" 
-            android:textSize="16sp" 
-            android:textColor="@color/primaryTextColor" 
-            android:padding="8dp" 
-            android:layout_marginBottom="16dp" 
-            android:focusable="false" 
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_status_default"
+            android:textSize="16sp"
+            android:textColor="@color/primaryTextColor"
+            android:padding="8dp"
+            android:layout_marginBottom="16dp"
+            android:focusable="false"
             android:importantForAccessibility="no"/>
-        
-        <Button 
-            android:id="@+id/btnChangeName" 
-            android:layout_width="match_parent" 
-            android:layout_height="72dp" 
-            android:text="@string/btn_change_name" 
-            android:textSize="18sp" 
-            android:layout_marginBottom="8dp" 
-            android:focusable="true" 
+
+        <Button
+            android:id="@+id/btnChangeName"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:text="@string/btn_change_name"
+            android:contentDescription="@string/btn_change_name"
+            android:textSize="18sp"
+            android:layout_marginBottom="8dp"
+            android:focusable="true"
+            android:accessibilityLiveRegion="none"
             android:clickable="true"/>
-        
-        <Button 
-            android:id="@+id/btnLanguage" 
-            android:layout_width="match_parent" 
-            android:layout_height="72dp" 
-            android:text="@string/btn_language" 
-            android:textSize="18sp" 
-            android:layout_marginBottom="8dp" 
-            android:focusable="true" 
+
+        <Button
+            android:id="@+id/btnLanguage"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:text="@string/btn_language"
+            android:contentDescription="@string/btn_language"
+            android:textSize="18sp"
+            android:layout_marginBottom="8dp"
+            android:focusable="true"
+            android:accessibilityLiveRegion="none"
             android:clickable="true"/>
-        
-        <Button 
-            android:id="@+id/btnVoiceSpeed" 
-            android:layout_width="match_parent" 
-            android:layout_height="72dp" 
-            android:text="@string/btn_voice_speed" 
-            android:textSize="18sp" 
-            android:layout_marginBottom="8dp" 
-            android:focusable="true" 
+
+        <Button
+            android:id="@+id/btnVoiceSpeed"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:text="@string/btn_voice_speed"
+            android:contentDescription="@string/btn_voice_speed"
+            android:textSize="18sp"
+            android:layout_marginBottom="8dp"
+            android:focusable="true"
+            android:accessibilityLiveRegion="none"
             android:clickable="true"/>
-        
-        <Button 
-            android:id="@+id/btnResetData" 
-            android:layout_width="match_parent" 
-            android:layout_height="72dp" 
-            android:text="@string/btn_reset_data" 
-            android:textSize="18sp" 
-            android:layout_marginBottom="8dp" 
-            android:focusable="true" 
+
+        <Button
+            android:id="@+id/btnResetData"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:text="@string/btn_reset_data"
+            android:contentDescription="@string/btn_reset_data"
+            android:textSize="18sp"
+            android:layout_marginBottom="8dp"
+            android:focusable="true"
+            android:accessibilityLiveRegion="none"
             android:clickable="true"/>
+
     </LinearLayout>
 </ScrollView>
