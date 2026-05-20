@@ -1,8 +1,11 @@
 package com.example.smartsight;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 
 import androidx.annotation.NonNull;
@@ -31,33 +34,42 @@ public class SavedItemsActivity extends BaseActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_saved_items);
-
-        // Silence TalkBack — our TTS speaks everything in the correct language
-        TalkBackSilencer.silence(this, null); // tts not ready yet, re-applied in onInit
+        TalkBackSilencer.silence(this, null);
 
         tts        = new TextToSpeech(this, this);
         repository = new AppRepository(this);
 
         RecyclerView recycler = findViewById(R.id.recyclerSavedItems);
         recycler.setLayoutManager(new LinearLayoutManager(this));
+
+        // Must be YES so TalkBack can reach inside and move focus between rows.
+        recycler.setImportantForAccessibility(
+                RecyclerView.IMPORTANT_FOR_ACCESSIBILITY_YES);
+
         adapter = new SavedItemsAdapter(this, this);
         recycler.setAdapter(adapter);
 
         itemViewModel = new ViewModelProvider(this).get(ItemViewModel.class);
         itemViewModel.getAllItems().observe(this, items -> {
             adapter.setItems(items);
-            if (items == null || items.isEmpty()) {
-                TtsHelper.speak(tts, getString(R.string.no_saved_items));
-            } else if (items.size() == 1) {
-                TtsHelper.speak(tts, getString(R.string.saved_items_count_one));
-            } else {
-                TtsHelper.speak(tts,
-                        getString(R.string.saved_items_count_many, items.size()));
+            if ("fr".equals(SettingsPrefs.getLanguage(this))
+                    || !AccessibilityUtils.isTalkBackEnabled(this)) {
+                if (items == null || items.isEmpty()) {
+                    TtsHelper.speak(tts, getString(R.string.no_saved_items));
+                } else if (items.size() == 1) {
+                    TtsHelper.speak(tts, getString(R.string.saved_items_count_one));
+                } else {
+                    TtsHelper.speak(tts,
+                            getString(R.string.saved_items_count_many, items.size()));
+                }
             }
         });
 
         SharedSpeechRecognizer.init(this);
+        requestMicPermission();
+    }
 
+    private void requestMicPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
@@ -70,9 +82,10 @@ public class SavedItemsActivity extends BaseActivity
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
             TtsHelper.applySettings(this, tts);
-            // Re-apply silencer now that tts is ready
             TalkBackSilencer.silence(this, tts);
             voiceEditManager = new VoiceEditManager(this, tts, this);
+            // Hand TTS to adapter so it can apply focus speech to each row
+            adapter.setTts(tts);
         }
     }
 
@@ -81,12 +94,26 @@ public class SavedItemsActivity extends BaseActivity
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == AUDIO_PERMISSION_CODE
-                && (grantResults.length == 0
-                || grantResults[0] != PackageManager.PERMISSION_GRANTED)) {
-            TtsHelper.speak(tts, getString(R.string.mic_permission_required));
+        if (requestCode == AUDIO_PERMISSION_CODE) {
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted — nothing extra needed, mic is ready.
+            } else {
+                // Permission denied — tell the user and open app settings.
+                TtsHelper.speakThen(tts,
+                        getString(R.string.permission_mic_denied_go_to_settings),
+                        () -> {
+                            Intent intent = new Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", getPackageName(), null));
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                        });
+            }
         }
     }
+
+    // ── Item interaction ─────────────────────────────────────────────────────
 
     @Override
     public void onItemClick(SavedItem item) {
@@ -101,7 +128,7 @@ public class SavedItemsActivity extends BaseActivity
             sb.append(getString(R.string.this_is_object)).append(". ");
             if (item.detectedName != null) {
                 sb.append(getString(R.string.detected_as,
-                        LabelTranslator.translate(this, item.detectedName))).append(". ");
+                        LabelTranslator.translateForTts(this, item.detectedName))).append(". ");
             }
         }
         sb.append(getString(R.string.hold_to_edit));
@@ -122,6 +149,8 @@ public class SavedItemsActivity extends BaseActivity
             });
         });
     }
+
+    // ── VoiceEditManager.Callbacks ───────────────────────────────────────────
 
     @Override
     public void onActionRename(String newName) {
@@ -168,6 +197,8 @@ public class SavedItemsActivity extends BaseActivity
         currentEditItem = null;
     }
 
+    // ── Reminder flow ────────────────────────────────────────────────────────
+
     private void startReminderFlowForItem(SavedItem item) {
         if (reminderFlow != null) reminderFlow.shutdown();
         reminderFlow = new ReminderVoiceFlow(this, tts, new ReminderVoiceFlow.Callbacks() {
@@ -175,6 +206,7 @@ public class SavedItemsActivity extends BaseActivity
             public void onReminderDefined(String repeatType, long reminderTimeMs) {
                 persistAndScheduleReminder(item, repeatType, reminderTimeMs);
             }
+
             @Override
             public void onCancelled() {
                 runOnUiThread(() -> {
@@ -203,6 +235,8 @@ public class SavedItemsActivity extends BaseActivity
             });
         });
     }
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
 
     @Override
     protected void onPause() {
