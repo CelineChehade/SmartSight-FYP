@@ -5,14 +5,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.Settings;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
-import android.speech.tts.UtteranceProgressListener;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
@@ -44,8 +41,6 @@ public class MainActivity extends BaseActivity implements TextToSpeech.OnInitLis
     private static final String PREFS_NAME         = "app_prefs";
     private static final String KEY_TALKBACK_ASKED = "talkback_asked";
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,6 +50,7 @@ public class MainActivity extends BaseActivity implements TextToSpeech.OnInitLis
         }
 
         setContentView(R.layout.activity_main);
+        TalkBackSilencer.silence(this, null);
 
         tvGreeting  = findViewById(R.id.tvGreeting);
         btnScan     = findViewById(R.id.btnSmartScan);
@@ -215,35 +211,11 @@ public class MainActivity extends BaseActivity implements TextToSpeech.OnInitLis
     }
 
     private void speak(String msg) {
-        if (textToSpeech != null) {
-            textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, null);
-        }
+        TtsHelper.speak(textToSpeech, msg);
     }
 
     private void speakAndThen(String msg, Runnable action) {
-        if (textToSpeech == null) return;
-        textToSpeech.stop();
-        String utterId = "utt_" + System.currentTimeMillis();
-
-        textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-            @Override public void onStart(String utteranceId) {}
-
-            @Override
-            public void onDone(String utteranceId) {
-                if (utterId.equals(utteranceId)) {
-                    runOnUiThread(() -> handler.postDelayed(action, 500));
-                }
-            }
-
-            @Override
-            public void onError(String utteranceId) {
-                if (utterId.equals(utteranceId)) {
-                    runOnUiThread(() -> handler.postDelayed(action, 500));
-                }
-            }
-        });
-
-        textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
+        TtsHelper.speakThen(textToSpeech, msg, action);
     }
 
     private void greetUser(String name) {
@@ -253,52 +225,43 @@ public class MainActivity extends BaseActivity implements TextToSpeech.OnInitLis
         // Show buttons immediately
         setButtonsVisible(true);
 
-        // Apply TalkBack silencer now that buttons are visible, then wire
-        // focus speech so our TTS speaks button labels in correct language
         TalkBackSilencer.silence(this, textToSpeech);
         TalkBackSilencer.addFocusSpeech(btnScan,
-                getString(R.string.smart_scan_button), textToSpeech);
+                getString(R.string.smart_scan_button), textToSpeech, this);
         TalkBackSilencer.addFocusSpeech(btnSaved,
-                getString(R.string.saved_items_button), textToSpeech);
+                getString(R.string.saved_items_button), textToSpeech, this);
         TalkBackSilencer.addFocusSpeech(btnSettings,
-                getString(R.string.settings_button), textToSpeech);
+                getString(R.string.settings_button), textToSpeech, this);
 
         attachButtonLogic();
 
         boolean talkBackOn   = isTalkBackEnabled();
         boolean alreadyAsked = hasAskedForTalkBack();
 
-        String utterId = "greet_" + System.currentTimeMillis();
+        if (!"fr".equals(SettingsPrefs.getLanguage(this)) && talkBackOn) {
+            // English + TalkBack: buttons are visible; TalkBack announces them naturally.
+            // App TTS QUEUE_FLUSH would cut off TalkBack's window announcement.
+            return;
+        }
 
-        textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-            @Override public void onStart(String id) {}
-
-            @Override
-            public void onDone(String id) {
-                if (!utterId.equals(id)) return;
-                runOnUiThread(() -> {
-                    if (!talkBackOn && !alreadyAsked) {
-                        setTalkBackAsked();
-                        speakAndThen(getString(R.string.talkback_not_enabled), () -> {
-                            startActivity(new Intent(
-                                    Settings.ACTION_ACCESSIBILITY_SETTINGS));
-                            speak(getString(R.string.talkback_settings_opened));
-                        });
-                    } else {
-                        speak(getString(R.string.main_menu_ready));
-                    }
+        TtsHelper.speakThen(textToSpeech, msg, () -> {
+            if (!talkBackOn && !alreadyAsked) {
+                setTalkBackAsked();
+                speakAndThen(getString(R.string.talkback_not_enabled), () -> {
+                    startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                    speak(getString(R.string.talkback_settings_opened));
                 });
-            }
-
-            @Override
-            public void onError(String id) {
-                if (utterId.equals(id)) {
-                    runOnUiThread(() -> speak(getString(R.string.main_menu_ready)));
-                }
+            } else {
+                TalkBackSilencer.silence(MainActivity.this, textToSpeech);
+                TalkBackSilencer.addFocusSpeech(btnScan,
+                        getString(R.string.smart_scan_button), textToSpeech, MainActivity.this);
+                TalkBackSilencer.addFocusSpeech(btnSaved,
+                        getString(R.string.saved_items_button), textToSpeech, MainActivity.this);
+                TalkBackSilencer.addFocusSpeech(btnSettings,
+                        getString(R.string.settings_button), textToSpeech, MainActivity.this);
+                speak(getString(R.string.main_menu_ready));
             }
         });
-
-        textToSpeech.speak(msg, TextToSpeech.QUEUE_FLUSH, null, utterId);
     }
 
     private void setButtonsVisible(boolean visible) {
@@ -342,7 +305,6 @@ public class MainActivity extends BaseActivity implements TextToSpeech.OnInitLis
             textToSpeech.stop();
             textToSpeech.shutdown();
         }
-        handler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 }
