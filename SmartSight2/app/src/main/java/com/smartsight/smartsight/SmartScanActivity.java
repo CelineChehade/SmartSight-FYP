@@ -1,28 +1,29 @@
 package com.example.smartsight;
 
 import android.Manifest;
-import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.provider.Settings;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageCapture;
@@ -51,17 +52,21 @@ import java.util.Locale;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-public class SmartScanActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
+/**
+ * Extends BaseActivity (not AppCompatActivity directly) so that:
+ * 1. LocaleManager.wrap() is applied automatically via attachBaseContext.
+ * 2. dispatchPopulateAccessibilityEvent() silences TalkBack window announcement.
+ */
+public class SmartScanActivity extends BaseActivity implements TextToSpeech.OnInitListener {
 
     private static final String TAG          = "SmartScanActivity";
-    // FIX: Increased STT delay so TTS always finishes before listening starts
     private static final long   STT_DELAY_MS = 1200;
     private static final int    MAX_RETRIES  = 3;
 
     private TextToSpeech   tts;
     private PreviewView    previewView;
     private ImageCapture   imageCapture;
-    private Button         btnScan;
+    private TextView       btnScan;
     private ObjectDetector objectDetector;
     private ImageFingerprintExtractor fingerprintExtractor;
     private ItemMatcher    itemMatcher;
@@ -78,6 +83,9 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
 
     private boolean isHolding  = false;
     private int     retryCount = 0;
+
+    // Tracks the last prompt spoken so we can re-ask it on STT failure
+    private String lastPrompt = null;
 
     private enum SaveState { IDLE, ASK_WHICH_OBJECT, ASK_TEXT_OR_OBJECT, ASK_SAVE, ASK_NAME, ASK_REMINDER }
     private SaveState saveState = SaveState.IDLE;
@@ -98,17 +106,14 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     }
 
     @Override
-    protected void attachBaseContext(Context newBase) {
-        super.attachBaseContext(LocaleManager.wrap(newBase));
-    }
-
-    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (SettingsPrefs.isHighContrast(this))
             setTheme(android.R.style.Theme_Black_NoTitleBar);
 
         setContentView(R.layout.activity_smart_scan);
+        TalkBackSilencer.silence(this, null);
+
         previewView = findViewById(R.id.cameraPreview);
         btnScan     = findViewById(R.id.btnScan);
 
@@ -121,7 +126,6 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
         repository           = new AppRepository(this);
 
         SharedSpeechRecognizer.init(this);
-
         requestPermissionsIfNeeded();
         setupScanUI();
     }
@@ -136,9 +140,19 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
             TtsHelper.applySettings(this, tts);
-            TtsHelper.speak(tts, AccessibilityUtils.isTalkBackEnabled(this)
-                    ? getString(R.string.instruction_talkback_scan)
-                    : getString(R.string.instruction_non_talkback_scan));
+            TalkBackSilencer.silence(this, tts);
+            boolean talkBackOn = AccessibilityUtils.isTalkBackEnabled(this);
+            if (talkBackOn) {
+                TalkBackSilencer.addFocusSpeech(
+                        btnScan, getString(R.string.scan_button_label), tts, this);
+            }
+            // Only speak via app TTS if French (TalkBack silenced) or TalkBack is off.
+            // In English + TalkBack, QUEUE_FLUSH would cut off TalkBack's own announcement.
+            if ("fr".equals(SettingsPrefs.getLanguage(this)) || !talkBackOn) {
+                TtsHelper.speak(tts, talkBackOn
+                        ? getString(R.string.instruction_talkback_scan)
+                        : getString(R.string.instruction_non_talkback_scan));
+            }
         }
     }
 
@@ -151,6 +165,12 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
             btnScan.setOnClickListener(v -> {
                 if (saveState == SaveState.IDLE && imageCapture != null) captureImage();
             });
+            // Re-apply on resume in case the delegate was cleared (tts may be null on first
+            // pass through onCreate; onInit() handles that case separately)
+            if (tts != null) {
+                TalkBackSilencer.addFocusSpeech(
+                        btnScan, getString(R.string.scan_button_label), tts, this);
+            }
             root.setOnTouchListener(null);
             root.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         } else {
@@ -175,6 +195,8 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
         }
     }
 
+    // ── Permissions ──────────────────────────────────────────────────────────
+
     private void requestPermissionsIfNeeded() {
         boolean camOk = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED;
@@ -195,17 +217,51 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     public void onRequestPermissionsResult(int code, @NonNull String[] perms,
                                            @NonNull int[] results) {
         super.onRequestPermissionsResult(code, perms, results);
-        if (code == CAMERA_PERMISSION_CODE
-                && results.length > 0
-                && results[0] == PackageManager.PERMISSION_GRANTED) {
-            startCamera();
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_CODE);
+
+        if (code == CAMERA_PERMISSION_CODE) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+                startCamera();
+                // Now ask for mic if not already granted
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.RECORD_AUDIO},
+                            AUDIO_PERMISSION_CODE);
+                }
+            } else {
+                // Camera denied — cannot function without it
+                TtsHelper.speakThen(tts,
+                        getString(R.string.permission_camera_denied_go_to_settings),
+                        () -> {
+                            Intent intent = new Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", getPackageName(), null));
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                            finish();
+                        });
+            }
+        }
+
+        if (code == AUDIO_PERMISSION_CODE) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+                // Mic granted — nothing extra to do
+            } else {
+                // Mic denied — voice commands won't work
+                TtsHelper.speakThen(tts,
+                        getString(R.string.permission_mic_denied_go_to_settings),
+                        () -> {
+                            Intent intent = new Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", getPackageName(), null));
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                        });
             }
         }
     }
+
+    // ── Object detector ──────────────────────────────────────────────────────
 
     private void initObjectDetector() {
         try {
@@ -236,6 +292,8 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
         }, ContextCompat.getMainExecutor(this));
     }
 
+    // ── Capture & process ────────────────────────────────────────────────────
+
     @OptIn(markerClass = ExperimentalGetImage.class)
     private void captureImage() {
         TtsHelper.speak(tts, getString(R.string.scanning));
@@ -243,17 +301,15 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override
                     public void onCaptureSuccess(@NonNull ImageProxy image) {
-                        // FIX: guard against null mediaImage before calling fromMediaImage
                         android.media.Image mediaImage = image.getImage();
-                        int rot = image.getImageInfo().getRotationDegrees();
-                        Bitmap bm = imageProxyToBitmap(image);
+                        int    rot     = image.getImageInfo().getRotationDegrees();
+                        Bitmap bm      = imageProxyToBitmap(image);
                         Bitmap rotated = rotateBitmap(bm, rot);
 
                         if (mediaImage != null) {
                             processBothTextAndObjects(
                                     InputImage.fromMediaImage(mediaImage, rot), rotated);
                         } else if (rotated != null) {
-                            // Fallback: build InputImage from the bitmap
                             processBothTextAndObjects(
                                     InputImage.fromBitmap(rotated, 0), rotated);
                         } else {
@@ -274,14 +330,12 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     private void processBothTextAndObjects(InputImage inputImage, Bitmap bitmap) {
         final String[]             detectedText = {null};
         final List<DetectedObject> foundObjects = new ArrayList<>();
-        // Track how many async tasks are still running
         final int[] pending = {2};
 
         Runnable checkDone = () -> {
             pending[0]--;
             if (pending[0] == 0) {
-                runOnUiThread(() ->
-                        checkScanComplete(detectedText[0], foundObjects, bitmap));
+                runOnUiThread(() -> checkScanComplete(detectedText[0], foundObjects, bitmap));
             }
         };
 
@@ -338,7 +392,9 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
                 SavedItem match = itemMatcher.matchText(text);
                 runOnUiThread(() -> {
                     if (match != null) {
-                        TtsHelper.speak(tts, getString(R.string.this_is_your, match.customName));
+                        String name = match.customName != null ? match.customName : "";
+                        TtsHelper.speak(tts,
+                                getString(R.string.this_is_your, name));
                         saveState = SaveState.IDLE;
                     } else {
                         checkObjectMatches(true, hasObjects);
@@ -368,26 +424,19 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
             }
 
             runOnUiThread(() -> {
-                // FIX: Build the announcement without duplicating "I see a".
-                // Matched items use "This is your X".
-                // Unmatched items: first one uses "I see a X", subsequent ones
-                // are appended with ", and a Y" — no repeated "I see a" prefix.
                 StringBuilder sb = new StringBuilder();
-
                 for (int i = 0; i < matched.size(); i++) {
                     if (sb.length() > 0) sb.append(". ");
-                    sb.append(getString(R.string.this_is_your, matched.get(i).customName));
+                    String n = matched.get(i).customName != null ? matched.get(i).customName : "";
+                    sb.append(getString(R.string.this_is_your, n));
                 }
-
                 if (!unmatched.isEmpty()) {
                     if (sb.length() > 0) sb.append(". ");
-                    // First unmatched object
-                    String firstLabel = LabelTranslator.translate(
+                    String firstLabel = LabelTranslator.translateForTts(
                             SmartScanActivity.this, unmatched.get(0).label);
                     sb.append(getString(R.string.i_see_a, firstLabel));
-                    // Additional unmatched objects — joined naturally, no repeated prefix
                     for (int i = 1; i < unmatched.size(); i++) {
-                        String lbl = LabelTranslator.translate(
+                        String lbl = LabelTranslator.translateForTts(
                                 SmartScanActivity.this, unmatched.get(i).label);
                         sb.append(", ").append(getString(R.string.and_a, lbl));
                     }
@@ -417,18 +466,15 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
         });
     }
 
-    // ── STT helpers ──────────────────────────────────────────────────────────
+    // ── STT helpers ───────────────────────────────────────────────────────────
 
     /**
-     * FIX: speakThenListen now always goes through TtsHelper.speakThen,
-     * which sets ttsActive=true before speaking and clears it only in onDone/onError.
-     * SharedSpeechRecognizer.listen() checks isTtsActive() and delays itself by
-     * 800 ms if TTS is still playing. The extra STT_DELAY_MS (1200 ms) on top
-     * of that gives a comfortable buffer so we never start listening while
-     * the device is still speaking.
+     * Speak a prompt, record it as the "last prompt" for re-asking on failure,
+     * then start listening after TTS finishes + STT_DELAY_MS buffer.
      */
     private void speakThenListen(String msg) {
         retryCount = 0;
+        lastPrompt = msg;   // remember so we can re-ask on STT error
         TtsHelper.speakThen(tts, msg,
                 () -> handler.postDelayed(this::startListeningOnce, STT_DELAY_MS));
     }
@@ -437,13 +483,24 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
         SharedSpeechRecognizer.get().listen(this, result -> {
             if (result.success) {
                 retryCount = 0;
-                handleSpeechResult(result.text);
+                // For name capture only the top result matters (free-form text).
+                // For every command state, join all hypotheses so one-syllable words
+                // like "yes"/"no" that land in a lower-confidence hypothesis still match.
+                String text = (saveState == SaveState.ASK_NAME)
+                        ? result.text
+                        : String.join(" ", result.allResults);
+                handleSpeechResult(text);
             } else {
                 handleListenError(result.errorCode);
             }
         });
     }
 
+    /**
+     * On STT failure, silently retry up to MAX_RETRIES times.
+     * After all retries are exhausted, say "I didn't catch that" then
+     * RE-ASK the exact same question the user was on — not just a bare retry.
+     */
     private void handleListenError(int errorCode) {
         boolean isSoft = errorCode == SpeechRecognizer.ERROR_NO_MATCH
                 || errorCode == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
@@ -452,14 +509,13 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
 
         if (isSoft && retryCount < MAX_RETRIES) {
             retryCount++;
-            // FIX: use a plain postDelayed retry rather than re-speaking
-            // "I didn't catch that" every single retry — only speak it
-            // after all retries are exhausted.
             handler.postDelayed(this::startListeningOnce, STT_DELAY_MS);
         } else {
             retryCount = 0;
-            TtsHelper.speakThen(tts, getString(R.string.didnt_catch),
-                    () -> handler.postDelayed(this::startListeningOnce, STT_DELAY_MS));
+            // Re-ask the original question (not just "try again")
+            String reAsk = getString(R.string.didnt_catch)
+                    + (lastPrompt != null ? " " + lastPrompt : "");
+            speakThenListen(reAsk);
         }
     }
 
@@ -491,13 +547,11 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
                 break;
 
             case ASK_TEXT_OR_OBJECT:
-                if (containsAny(cleaned,
-                        "text","texte","words","writing","mots","écriture")) {
+                if (containsAny(cleaned, "text","texte","words","writing","mots","écriture")) {
                     lastScanType = ScanType.TEXT;
                     saveState    = SaveState.ASK_SAVE;
                     speakThenListen(lastScannedText + ". " + getString(R.string.ask_save));
-                } else if (containsAny(cleaned,
-                        "object","objet","thing","item","chose","image")) {
+                } else if (containsAny(cleaned, "object","objet","thing","item","chose","image")) {
                     lastScanType = ScanType.OBJECT;
                     saveState    = SaveState.ASK_SAVE;
                     speakThenListen(getString(R.string.ask_save));
@@ -619,13 +673,13 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
             backgroundExecutor.execute(() -> {
                 String imagePath = saveBitmapToInternalStorage(bm, now);
                 SavedItem item = new SavedItem();
-                item.customName        = customName;
-                item.detectedName      = chosenObject.label;
-                item.category          = "object";
-                item.scanDate          = now;
-                item.isMedication      = false;
-                item.imagePath         = imagePath;
-                item.imageFingerprint  = chosenObject.fingerprint;
+                item.customName       = customName;
+                item.detectedName     = chosenObject.label;
+                item.category         = "object";
+                item.scanDate         = now;
+                item.isMedication     = false;
+                item.imagePath        = imagePath;
+                item.imageFingerprint = chosenObject.fingerprint;
                 long newId = insertItemSync(item);
                 runOnUiThread(() -> {
                     lastSavedItemId   = (int) newId;
@@ -653,10 +707,10 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
             File dir = new File(getFilesDir(), "saved_images");
             if (!dir.exists()) dir.mkdirs();
             File f = new File(dir, "img_" + ts + ".jpg");
-            FileOutputStream fos = new FileOutputStream(f);
-            bm.compress(Bitmap.CompressFormat.JPEG, 90, fos);
-            fos.flush();
-            fos.close();
+            try (FileOutputStream fos = new FileOutputStream(f)) {
+                bm.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                fos.flush();
+            }
             return f.getAbsolutePath();
         } catch (Exception e) {
             return null;
@@ -689,11 +743,10 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     }
 
     private void vibrate() {
-        Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        Vibrator v = (Vibrator) getSystemService(android.content.Context.VIBRATOR_SERVICE);
         if (v == null) return;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            v.vibrate(VibrationEffect.createOneShot(
-                    200, VibrationEffect.DEFAULT_AMPLITUDE));
+            v.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE));
         } else {
             v.vibrate(200);
         }
@@ -705,10 +758,7 @@ public class SmartScanActivity extends AppCompatActivity implements TextToSpeech
     protected void onPause() {
         super.onPause();
         SharedSpeechRecognizer.get().cancel();
-        if (reminderFlow != null) {
-            reminderFlow.shutdown();
-            reminderFlow = null;
-        }
+        if (reminderFlow != null) { reminderFlow.shutdown(); reminderFlow = null; }
     }
 
     @Override
