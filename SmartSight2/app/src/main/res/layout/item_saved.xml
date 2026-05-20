@@ -1,46 +1,46 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" 
-    android:layout_width="match_parent" 
-    android:layout_height="wrap_content" 
-    android:orientation="vertical" 
-    android:padding="16dp" 
-    android:background="@color/cardColor" 
-    android:focusable="true" 
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/cardColor"
+    android:focusable="true"
     android:clickable="true">
-    
-    <TextView 
-        android:id="@+id/tvNoteName" 
-        android:layout_width="match_parent" 
-        android:layout_height="wrap_content" 
-        android:textSize="18sp" 
-        android:textStyle="bold" 
-        android:textColor="@color/primaryTextColor" 
-        android:maxLines="1" 
-        android:ellipsize="end" 
-        android:contentDescription="Scan name"/>
-    
-    <TextView 
-        android:id="@+id/tvNoteDate" 
-        android:layout_width="match_parent" 
+
+    <TextView
+        android:id="@+id/tvNoteName"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="12sp" 
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/primaryTextColor"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:contentDescription="Scan name"/>
+
+    <TextView
+        android:id="@+id/tvNoteDate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
         android:textColor="@color/buttonTextColor"
         android:layout_marginTop="2dp"/>
-    
+
     <TextView
         android:id="@+id/tvNotePreview"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="14sp"
         android:textColor="@color/buttonTextColor"
-        android:layout_marginTop="6dp" 
-        android:maxLines="2" 
+        android:layout_marginTop="6dp"
+        android:maxLines="2"
         android:ellipsize="end"
         android:contentDescription="Extracted text preview"/>
-    
-    <View 
-        android:layout_width="match_parent" 
+
+    <View
+        android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/primaryTextColor" 
-        android:alpha="0.2" 
+        android:background="@color/primaryTextColor"
+        android:alpha="0.2"
         android:layout_marginTop="12dp"/>
 </LinearLayout>
