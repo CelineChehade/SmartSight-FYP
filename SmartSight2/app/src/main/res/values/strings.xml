@@ -8,15 +8,23 @@
     <string name="smart_scan_button">Smart Scan</string>
     <string name="saved_items_button">Saved Items</string>
     <string name="settings_button">Settings</string>
-    <string name="main_menu_ready">Main menu ready. Say Smart Scan, Saved Items, or Settings.</string>
+    <!-- FIX: Do not instruct the user to say button names — home buttons are
+         touch/TalkBack-only, not voice-triggered. -->
+    <string name="main_menu_ready">Main menu ready.</string>
+
+    <!--  TalkBack accessibility  -->
+    <!-- FIX: Spoken after button name when TalkBack focuses a button, e.g. "Smart Scan button." -->
+    <string name="talkback_button_suffix">button.</string>
 
     <!--  Onboarding  -->
+    <!-- ask_name intentionally keeps "after the beep" — it is the only prompt
+         where a beep sound actually plays before recording starts. -->
     <string name="ask_name">Please say your full name after the beep.</string>
-    <string name="confirm_name">You said %1$s. Is that correct? Say yes or no after the beep.</string>
+    <string name="confirm_name">You said %1$s. Is that correct? Say yes or no.</string>
     <string name="try_again">Let\'s try again.</string>
     <string name="mic_permission_required">Microphone permission is required for voice control.</string>
-    <string name="please_answer_yes_no">Please say yes or no after the beep.</string>
-    <string name="didnt_catch">I didn\'t catch that. Please try again after the beep.</string>
+    <string name="please_answer_yes_no">Please say yes or no.</string>
+    <string name="didnt_catch">I didn\'t catch that. Please try again.</string>
 
     <!--  Permission denied  -->
     <string name="permission_mic_denied_go_to_settings">Microphone access is required for SmartSight to work. Please go to Settings and enable the Microphone permission for this app.</string>
@@ -43,12 +51,12 @@
     <string name="instruction_talkback_scan">Smart Scan ready. Tap the scan button to capture an image.</string>
 
     <!--  Save flow  -->
-    <string name="ask_save">Do you want to save this? Say yes or no after the beep.</string>
-    <string name="ask_name_for_item">What name would you like to give it? Speak after the beep.</string>
-    <string name="please_say_yes_no">Please say yes or no after the beep.</string>
+    <string name="ask_save">Do you want to save this? Say yes or no.</string>
+    <string name="ask_name_for_item">What name would you like to give it? Speak now.</string>
+    <string name="please_say_yes_no">Please say yes or no.</string>
     <string name="not_saving">Okay, not saving.</string>
     <string name="saved_as">Saved as %1$s.</string>
-    <string name="didnt_catch_name">I didn\'t catch the name. Please say it again after the beep.</string>
+    <string name="didnt_catch_name">I didn\'t catch the name. Please say it again.</string>
 
     <!--  Saved Items  -->
     <string name="saved_scans_title">My Saved Items</string>
@@ -64,38 +72,38 @@
     <string name="btn_delete_description">Delete this item</string>
 
     <!--  VoiceEditManager  -->
-    <string name="vem_ask_action">What do you want to do? Say delete or rename after the beep.</string>
-    <string name="vem_please_delete_or_rename">Please say delete or rename after the beep.</string>
-    <string name="vem_confirm_delete">Are you sure you want to delete %1$s? Say yes or no after the beep.</string>
-    <string name="vem_ask_new_name">What is the new name? Speak after the beep.</string>
-    <string name="vem_confirm_new_name">I heard %1$s. Is this correct? Say yes or no after the beep.</string>
+    <string name="vem_ask_action">What do you want to do? Say delete or rename.</string>
+    <string name="vem_please_delete_or_rename">Please say delete or rename.</string>
+    <string name="vem_confirm_delete">Are you sure you want to delete %1$s? Say yes or no.</string>
+    <string name="vem_ask_new_name">What is the new name? Speak now.</string>
+    <string name="vem_confirm_new_name">I heard %1$s. Is this correct? Say yes or no.</string>
     <string name="vem_deleted">Deleted.</string>
     <string name="vem_renamed_to">Renamed to %1$s.</string>
     <string name="vem_cancelled">Cancelled.</string>
-    <string name="vem_ask_action_no_reminder">What do you want to do? Say rename, add reminder, or delete after the beep.</string>
-    <string name="vem_ask_action_with_reminder">What do you want to do? Say rename, edit reminder, delete reminder, or delete after the beep.</string>
+    <string name="vem_ask_action_no_reminder">What do you want to do? Say rename, add reminder, or delete.</string>
+    <string name="vem_ask_action_with_reminder">What do you want to do? Say rename, edit reminder, delete reminder, or delete.</string>
 
     <!--  Settings  -->
     <string name="settings_title">Settings</string>
-    <string name="settings_greeting">Settings. Say one of these options after the beep: change name, language, voice speed, or reset all data.</string>
+    <string name="settings_greeting">Settings. Say one of these options: change name, language, voice speed, or reset all data.</string>
     <string name="settings_status_default">Say a command or tap a button below.</string>
-    <string name="settings_return_to_menu">%1$s Say another command after the beep, or press back to return.</string>
-    <string name="settings_please_say_commands">Please say one of the following after the beep: change name, language, voice speed, or reset all data.</string>
-    <string name="please_say_yes_no_settings">Please say yes or no after the beep.</string>
+    <string name="settings_return_to_menu">%1$s Say another command, or press back to return.</string>
+    <string name="settings_please_say_commands">Please say one of the following: change name, language, voice speed, or reset all data.</string>
+    <string name="please_say_yes_no_settings">Please say yes or no.</string>
 
     <!--  Change name  -->
     <string name="btn_change_name">Change Name</string>
     <string name="btn_change_name_description">Change user name.</string>
-    <string name="settings_ask_new_name">What is your new name? Speak after the beep.</string>
-    <string name="settings_confirm_new_name">I heard %1$s. Is that correct? Say yes or no after the beep.</string>
-    <string name="settings_retry_name">Let\'s try again. What is your new name? Speak after the beep.</string>
+    <string name="settings_ask_new_name">What is your new name? Speak now.</string>
+    <string name="settings_confirm_new_name">I heard %1$s. Is that correct? Say yes or no.</string>
+    <string name="settings_retry_name">Let\'s try again. What is your new name? Speak now.</string>
     <string name="settings_name_updated">Name updated to %1$s.</string>
 
     <!--  Language  -->
     <string name="btn_language">Language</string>
     <string name="btn_language_description">Change app language.</string>
-    <string name="settings_ask_language">Say the language after the beep. English or French.</string>
-    <string name="settings_please_say_language">Please say English or French after the beep.</string>
+    <string name="settings_ask_language">Say the language. English or French.</string>
+    <string name="settings_please_say_language">Please say English or French.</string>
     <string name="settings_language_set">Language set to %1$s. The app will restart now.</string>
     <string name="lang_english">English</string>
     <string name="lang_french">French</string>
@@ -104,14 +112,14 @@
     <string name="btn_voice_speed">Voice Speed</string>
     <string name="btn_voice_speed_description">Adjust voice speed.</string>
     <string name="speed_test_phrase">The quick brown fox jumps over the lazy dog.</string>
-    <string name="speed_prompt">Say faster, slower, or good after the beep.</string>
+    <string name="speed_prompt">Say faster, slower, or good.</string>
     <string name="speed_saved">Voice speed saved.</string>
-    <string name="please_say_speed">Please say faster, slower, or good after the beep.</string>
+    <string name="please_say_speed">Please say faster, slower, or good.</string>
 
     <!--  Reset data  -->
     <string name="btn_reset_data">Reset All Data</string>
     <string name="btn_reset_data_description">Reset all saved data.</string>
-    <string name="reset_confirm">This will delete all your saved items, notes, and settings. Are you sure? Say yes or no after the beep.</string>
+    <string name="reset_confirm">This will delete all your saved items, notes, and settings. Are you sure? Say yes or no.</string>
     <string name="reset_done">All data has been deleted. The app will restart.</string>
     <string name="reset_cancelled">Reset cancelled.</string>
 
@@ -121,22 +129,22 @@
     <string name="reminder_notification_message">Reminder: %1$s</string>
 
     <!--  Reminder voice flow  -->
-    <string name="reminder_ask_frequency">How often should I remind you? Say once, daily, weekly, monthly, or yearly after the beep.</string>
-    <string name="reminder_ask_year">What year? Say the year, for example 2025, or say this year or next year after the beep.</string>
-    <string name="reminder_ask_month">What month? Say the month number from 1 to 12, or say the month name after the beep.</string>
-    <string name="reminder_ask_day">What day? Say the day number from 1 to 31, or say today or tomorrow after the beep.</string>
-    <string name="reminder_ask_hour">At what hour? Say a number from 1 to 12 after the beep.</string>
-    <string name="reminder_ask_minute">At what minute? Say a number from 0 to 59, or say o\'clock for zero after the beep.</string>
-    <string name="reminder_ask_ampm">Should that be A M or P M? Say morning for A M, or evening for P M after the beep.</string>
-    <string name="reminder_confirm">%1$s. Is that correct? Say yes or no after the beep.</string>
+    <string name="reminder_ask_frequency">How often should I remind you? Say once, daily, weekly, monthly, or yearly.</string>
+    <string name="reminder_ask_year">What year? Say the year, for example 2025, or say this year or next year.</string>
+    <string name="reminder_ask_month">What month? Say the month number from 1 to 12, or say the month name.</string>
+    <string name="reminder_ask_day">What day? Say the day number from 1 to 31, or say today or tomorrow.</string>
+    <string name="reminder_ask_hour">At what hour? Say a number from 1 to 12.</string>
+    <string name="reminder_ask_minute">At what minute? Say a number from 0 to 59, or say o\'clock for zero.</string>
+    <string name="reminder_ask_ampm">Should that be A M or P M? Say morning for A M, or evening for P M.</string>
+    <string name="reminder_confirm">%1$s. Is that correct? Say yes or no.</string>
     <string name="reminder_summary_format">I will remind you %1$s at %2$d:%3$02d %4$s on %5$04d-%6$02d-%7$02d.</string>
-    <string name="reminder_please_say_frequency">Please say once, daily, weekly, monthly, or yearly after the beep.</string>
-    <string name="reminder_please_say_year">I didn\'t catch that. Please say the year, or say this year or next year after the beep.</string>
-    <string name="reminder_please_say_month">I didn\'t catch that. Please say the month number or month name after the beep.</string>
-    <string name="reminder_please_say_day">I didn\'t catch that. Please say the day number, today, or tomorrow after the beep.</string>
-    <string name="reminder_please_say_hour">Please say a number from 1 to 12 after the beep.</string>
-    <string name="reminder_please_say_minute">Please say a number from 0 to 59, or say o\'clock after the beep.</string>
-    <string name="reminder_please_say_ampm">Please say A M or P M after the beep.</string>
+    <string name="reminder_please_say_frequency">Please say once, daily, weekly, monthly, or yearly.</string>
+    <string name="reminder_please_say_year">I didn\'t catch that. Please say the year, or say this year or next year.</string>
+    <string name="reminder_please_say_month">I didn\'t catch that. Please say the month number or month name.</string>
+    <string name="reminder_please_say_day">I didn\'t catch that. Please say the day number, today, or tomorrow.</string>
+    <string name="reminder_please_say_hour">Please say a number from 1 to 12.</string>
+    <string name="reminder_please_say_minute">Please say a number from 0 to 59, or say o\'clock.</string>
+    <string name="reminder_please_say_ampm">Please say A M or P M.</string>
     <string name="reminder_restart">Let\'s start over.</string>
     <string name="reminder_saved">Reminder saved.</string>
     <string name="reminder_removed">Reminder removed.</string>
@@ -154,14 +162,14 @@
     <string name="ampm_pm">PM</string>
 
     <!--  Reminder save flow  -->
-    <string name="ask_add_reminder">Would you like to add a reminder for this item? Say yes or no after the beep.</string>
+    <string name="ask_add_reminder">Would you like to add a reminder for this item? Say yes or no.</string>
 
     <!--  Multiple objects  -->
-    <string name="ask_which_object">Which object would you like to save? Speak after the beep.</string>
-    <string name="please_say_which_object">I didn\'t catch that. Please say which object you want after the beep.</string>
-    <string name="ask_text_or_object">Say text or object after the beep.</string>
-    <string name="please_say_text_or_object">I didn\'t catch that. Please say text or object after the beep.</string>
-    <string name="found_both_text_and_object">I found text that says: %1$s. I also detected an object: %2$s. What would you like to save? Say text or object after the beep.</string>
+    <string name="ask_which_object">Which object would you like to save? Speak now.</string>
+    <string name="please_say_which_object">I didn\'t catch that. Please say which object you want.</string>
+    <string name="ask_text_or_object">Say text or object.</string>
+    <string name="please_say_text_or_object">I didn\'t catch that. Please say text or object.</string>
+    <string name="found_both_text_and_object">I found text that says: %1$s. I also detected an object: %2$s. What would you like to save? Say text or object.</string>
 
     <!--  Conjunction  -->
     <string name="i_see_prefix">I see </string>
