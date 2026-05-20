@@ -197,13 +197,15 @@ public class SharedSpeechRecognizer {
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,
                 LocaleManager.getSttLanguageTag(context));
-        // REMOVED: EXTRA_PREFER_OFFLINE
-        // French offline speech recognition is not installed on most Android
-        // devices. Forcing offline caused immediate ERROR_NO_MATCH in French
-        // without ever opening the mic. Online recognition works for both
-        // English and French identically.
+        // REMOVED: EXTRA_PREFER_OFFLINE — French offline recognition is not installed
+        // on most devices. Forcing offline caused immediate ERROR_NO_MATCH in French.
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
+        // MINIMUM_LENGTH removed — it caused the recogniser to discard one-syllable
+        // words like "yes"/"no"/"oui" that are spoken in under 300 ms.
+        // Silence windows tightened so short commands finalise quickly.
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 500L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 800L);
         return intent;
     }
 }
