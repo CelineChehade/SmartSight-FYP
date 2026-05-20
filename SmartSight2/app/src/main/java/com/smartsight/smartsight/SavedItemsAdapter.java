@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.tts.TextToSpeech;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -34,14 +35,22 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
     private final SimpleDateFormat dateFormat =
             new SimpleDateFormat("dd MMM yyyy 'at' HH:mm", Locale.getDefault());
 
+    private TextToSpeech tts;
+
     private static final long HOLD_DURATION_MS = 2000;
 
     public SavedItemsAdapter(Context context, OnItemActionListener listener) {
-        // FIX: wrap the context with LocaleManager so that getString() returns
-        // strings in the correct language (French or English) instead of always
-        // using the system default language.
         this.context  = LocaleManager.wrap(context.getApplicationContext());
         this.listener = listener;
+    }
+
+    /**
+     * Called from SavedItemsActivity.onInit() once TTS is ready.
+     * Re-binds all rows so TalkBack focus speech is applied to existing items.
+     */
+    public void setTts(TextToSpeech tts) {
+        this.tts = tts;
+        notifyDataSetChanged();
     }
 
     public void setItems(List<SavedItem> newItems) {
@@ -63,7 +72,6 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
 
         h.txtCustomName.setText(item.customName != null ? item.customName : "");
 
-        // FIX: getString now uses the locale-wrapped context → returns French strings
         String categoryLabel;
         if ("text".equalsIgnoreCase(item.category)) {
             categoryLabel = context.getString(R.string.this_is_text_note);
@@ -78,23 +86,41 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
             h.txtDetected.setText("\"" +
                     (item.detectedName != null ? item.detectedName : "") + "\"");
         } else {
-            // LabelTranslator already translates the label to French when lang=fr
             String translated = item.detectedName != null
                     ? LabelTranslator.translate(context, item.detectedName)
                     : "";
-            // FIX: "Detected as" → "Détecté comme" via locale-wrapped context
             h.txtDetected.setText(context.getString(R.string.detected_as, translated));
         }
 
         if (item.imagePath != null && !item.imagePath.isEmpty()) {
             File f = new File(item.imagePath);
             if (f.exists()) {
-                h.imgThumbnail.setImageBitmap(BitmapFactory.decodeFile(item.imagePath));
+                android.graphics.Bitmap bm = BitmapFactory.decodeFile(item.imagePath);
+                if (bm != null) {
+                    h.imgThumbnail.setImageBitmap(bm);
+                } else {
+                    h.imgThumbnail.setImageResource(android.R.drawable.ic_menu_gallery);
+                }
             } else {
                 h.imgThumbnail.setImageResource(android.R.drawable.ic_menu_gallery);
             }
         } else {
             h.imgThumbnail.setImageResource(android.R.drawable.ic_menu_edit);
+        }
+
+        // Content description for non-TalkBack accessibility services
+        String name = item.customName != null ? item.customName : "";
+        h.itemView.setContentDescription(
+                name + ", " + categoryLabel + ", " +
+                h.txtDate.getText() + ". " +
+                context.getString(R.string.hold_to_edit));
+
+        // When TalkBack is on: silence default TalkBack speech and redirect
+        // focus announcements through the app's TTS (correct language, correct voice).
+        // Context null → no "button." suffix appended (this is a list row, not a button).
+        if (tts != null && AccessibilityUtils.isTalkBackEnabled(context)) {
+            String focusLabel = name.isEmpty() ? categoryLabel : name + ". " + categoryLabel;
+            TalkBackSilencer.addFocusSpeech(h.itemView, focusLabel, tts, null);
         }
 
         // Hold detection
@@ -124,13 +150,6 @@ public class SavedItemsAdapter extends RecyclerView.Adapter<SavedItemsAdapter.It
             }
             return false;
         });
-
-        h.itemView.setContentDescription(
-                h.txtCustomName.getText() + ", " +
-                        categoryLabel + ", " +
-                        h.txtDate.getText() + ". " +
-                        context.getString(R.string.hold_to_edit)
-        );
     }
 
     @Override
