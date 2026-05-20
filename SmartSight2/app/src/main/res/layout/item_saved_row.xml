@@ -1,61 +1,77 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" 
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal" 
-    android:padding="12dp" 
+    android:orientation="horizontal"
+    android:padding="12dp"
     android:background="?attr/selectableItemBackground"
-    android:focusable="true" 
+    android:focusable="true"
+    android:focusableInTouchMode="false"
     android:clickable="true"
-    android:longClickable="true" 
+    android:longClickable="true"
+    android:importantForAccessibility="yes"
     android:gravity="center_vertical">
-    
-    <ImageView 
-        android:id="@+id/imgThumbnail" 
+
+    <ImageView
+        android:id="@+id/imgThumbnail"
         android:layout_width="80dp"
         android:layout_height="80dp"
         android:scaleType="centerCrop"
         android:background="#CCCCCC"
-        android:contentDescription="@string/saved_item_image_description"/>
-    
-    <LinearLayout 
-        android:layout_width="0dp" 
+        android:focusable="false"
+        android:importantForAccessibility="no"
+        android:contentDescription="@null"/>
+
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:orientation="vertical" 
-        android:layout_marginStart="12dp">
-        
-        <TextView 
+        android:orientation="vertical"
+        android:layout_marginStart="12dp"
+        android:focusable="false"
+        android:importantForAccessibility="no">
+
+        <TextView
             android:id="@+id/txtCustomName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="18sp" 
+            android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="@color/primaryTextColor"/>
-        
-        <TextView 
-            android:id="@+id/txtCategory" 
-            android:layout_width="match_parent" 
+            android:textColor="@color/primaryTextColor"
+            android:focusable="false"
+            android:importantForAccessibility="no"/>
+
+        <TextView
+            android:id="@+id/txtCategory"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="13sp"
-            android:textColor="#666666" 
-            android:layout_marginTop="2dp"/>
-        
-        <TextView
-            android:id="@+id/txtDate" 
-            android:layout_width="match_parent" 
-            android:layout_height="wrap_content" 
-            android:textSize="13sp" 
             android:textColor="#666666"
-            android:layout_marginTop="2dp"/>
-      
-        <TextView 
+            android:layout_marginTop="2dp"
+            android:focusable="false"
+            android:importantForAccessibility="no"/>
+
+        <TextView
+            android:id="@+id/txtDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="#666666"
+            android:layout_marginTop="2dp"
+            android:focusable="false"
+            android:importantForAccessibility="no"/>
+
+        <TextView
             android:id="@+id/txtDetected"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="13sp" 
-            android:textColor="#888888" 
-            android:maxLines="2" 
+            android:textSize="13sp"
+            android:textColor="#888888"
+            android:maxLines="2"
             android:ellipsize="end"
-            android:layout_marginTop="4dp"/>
+            android:layout_marginTop="4dp"
+            android:focusable="false"
+            android:importantForAccessibility="no"/>
+
     </LinearLayout>
+
 </LinearLayout>
